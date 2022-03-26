@@ -113,14 +113,9 @@ class DatasetCreator:
 
     # creates a README.md file with information about the locally downloaded dataset
     def make_README(self):
-        scriptDir = os.path.dirname(__file__)
-        img_path = os.path.join(scriptDir, '..\\..\\cosmetic_images\\Unsplash_Mountains.png')
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        cv2.imwrite(self.path_out+'\\Unsplash_Mountains.png', img)
-
         text = '# Local download of the Unsplash Dataset\n\n'
 
-        text += '![](./Unsplash_Mountains.png)\n\n'
+        text += '![](https://drive.google.com/uc?export=view&id=1DZz--VgBa2dxYne4ATCbTUdNGY4W79S4)\n\n'
 
         text += '## 1 - Unsplash Dataset Access\n\n'
 
@@ -134,7 +129,7 @@ class DatasetCreator:
         text += '## 2 - Dataset Parameters\n\n'
 
         text += 'Downloaded images: ' + str(int(self.dataset_size*self.download_ratio)) + '<br> \n'
-        text += 'Images in `cache.csv`:' + str(len(self.images)) + ' (' + str(len(self.images) - int(self.dataset_size*self.download_ratio)) + 'remaining)\n\n'
+        text += 'Images in `cache.csv`: ' + str(len(self.images)) + ' (' + str(len(self.images) - int(self.dataset_size*self.download_ratio)) + ' remaining)\n\n'
                 
         text += '## 2 - Image Resolutions\n\n'
 
@@ -148,18 +143,3 @@ class DatasetCreator:
         file = open(self.path_out+'\\README.md', 'a')
         file.write(text)
         file.close()
-
-
-dataset_creator = DatasetCreator('D:\\UNSPLASH Dataset Lite', 'D:\\UNSPLASH Dataset', dataset_size=25e3)
-
-dataset_creator.load_dataframe()
-
-dataset_creator.search_images()
-
-dataset_creator.download_images()
-
-dataset_creator.save_cache()
-
-dataset_creator.set_infos(dataset_type='Lite', author_name='Lukas Hueglin')
-
-dataset_creator.make_README()
