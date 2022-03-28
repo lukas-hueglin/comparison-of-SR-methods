@@ -1,9 +1,8 @@
 ### dataset_creation_helpers.py ###
-from matplotlib.pyplot import bar
 import pandas as pd
 import numpy as np
 import os
-from urllib import request
+from urllib import request, error
 import cv2
 from tqdm import tqdm
 import datetime
@@ -21,7 +20,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-# creates a new directory if it does not exists
+# creates a new directory if it does not exist
 def make_dir(path):
     dirs = path.split(('\\'))
     joined_path = dirs[0]
@@ -31,14 +30,36 @@ def make_dir(path):
         if os.path.exists(joined_path) is False:
             os.mkdir(joined_path)
 
+# returns the downloaded image of the given url
 def retrieve_image_from_url(url):
-    response = request.urlopen(url)
+    try:
+        response = request.urlopen(url)
 
-    code = response.getcode()
-    img = np.array(bytearray(response.read()), dtype="uint8")
-    img = cv2.imdecode(img, cv2.IMREAD_COLOR)
+        img = np.array(bytearray(response.read()), dtype="uint8")
+        img = cv2.imdecode(img, cv2.IMREAD_COLOR)
+        return (True, img) 
 
-    return (code, img) 
+    # urllib exceptions
+    except error.HTTPError as err:
+        if err.code == 404:
+            print(bcolors.FAIL + "Page not found!" + bcolors.ENDC)
+        elif err.code == 403:
+            print(bcolors.FAIL + "Access denied!" + bcolors.ENDC)
+        else:
+            print(bcolors.FAIL + "HTTPError! Error code", str(err.code) + bcolors.ENDC)
+    except error.URLError as err:
+        print(bcolors.FAIL + "URLError: " + str(err.reason) + bcolors.ENDC)
+
+
+    # cv2 error
+    except cv2.error as e:
+        print(bcolors.FAIL + "Image decoding failed!: " + e + bcolors.ENDC)
+        
+    # catch rest I didn't think could happen :)
+    except:
+        print(bcolors.FAIL + "Something else failed!" + bcolors.ENDC)
+
+    return (False, np.array([]))
 
 class DatasetCreator:
     def __init__(self, path_in, path_out, sizes=(256, 64), dataset_size=2e4, download_ratio=1):
@@ -66,38 +87,53 @@ class DatasetCreator:
     def search_images(self):
         self.images = np.array(self.dataframe.loc[:, 'photo_image_url'])
 
+        # prints a warning if user requests to many images
         if len(self.images) < self.dataset_size:
             print(bcolors.WARNING + 'Warning: The Unsplash Dataset contains just ' + str(len(self.images)) + ' images!' + bcolors.ENDC)
         else:
             self.images = self.images[0:int(self.dataset_size)]
 
     # downloads all the images from self.images and saves them in self.path_out
+    # this function is still messy and should be cleaned up!
     def download_images(self):
+        # parent directory for all data
         data_path = os.path.join(self.path_out, 'data')
 
-        dir = 0
-        sub_dir = 0
+        # index of the directores and subdirectories
+        dir = 1
+        sub_dir = 4
 
+        # created first directories
         for s in range(len(self.sizes)):
             make_dir(os.path.join(data_path, 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)))
 
-        for i in tqdm(range(int(self.dataset_size*self.download_ratio))):
+        # iterates through all images
+        for i in tqdm(range(13843, int(self.dataset_size*self.download_ratio))):
+        # for every 1e4'th image, a new directory will be created
             if i % 1e4 == 0 and i!= 0:
                 dir += 1
                 sub_dir = 0
+                # create new directories
+                for s in range(len(self.sizes)):
+                    make_dir(os.path.join(data_path, 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)))
+            # for every 1e3'th image, a new subdirectory will be created
             elif i % 1e3 == 0 and i!= 0:
                 sub_dir += 1
+                # create new directories
                 for s in range(len(self.sizes)):
                     make_dir(os.path.join(data_path, 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)))
 
+            # download the image
             size_suffix = '?ixid=123123123&fit=crop&w='+str(self.sizes[0])+'&h='+str(self.sizes[0])
-            code, img = retrieve_image_from_url(self.images[i]+size_suffix)
+            status, img = retrieve_image_from_url(self.images[i]+size_suffix)
 
-            if code != 200:
+            # print warning if image couldn't be downloaded
+            if status is False:
                 print(bcolors.WARNING + 'Warning: The Image ' + self.images[i] + ' could not be downloaded!' + bcolors.ENDC)
             else:
                 img_index = int(i - dir*1e4 - sub_dir*1e3)
 
+                # creates all LODs and saves them
                 for s in range(len(self.sizes)):
                     img_path = 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)+'\\image_'+str(img_index)+'.jpg'
                     cv2.imwrite(os.path.join(data_path, img_path), cv2.resize(img, (self.sizes[s], self.sizes[s])))
@@ -105,14 +141,16 @@ class DatasetCreator:
     # saves self.images in a .csv file
     def save_cache(self):
         df = pd.DataFrame(self.images)
-        df.to_csv(self.path_out)
+        df.to_csv(self.path_out+'\\cache.csv')
 
+    # requests additional information, which will be stored in a README.md file
     def set_infos(self, dataset_type='Lite', author_name='unknown'):
         self.dataset_type = dataset_type
         self.author_name = author_name
 
     # creates a README.md file with information about the locally downloaded dataset
     def make_README(self):
+        # create content in markdown
         text = '# Local download of the Unsplash Dataset\n\n'
 
         text += '![](https://drive.google.com/uc?export=view&id=1DZz--VgBa2dxYne4ATCbTUdNGY4W79S4)\n\n'
@@ -128,8 +166,8 @@ class DatasetCreator:
 
         text += '## 2 - Dataset Parameters\n\n'
 
-        text += 'Downloaded images: ' + str(int(self.dataset_size*self.download_ratio)) + '<br> \n'
-        text += 'Images in `cache.csv`: ' + str(len(self.images)) + ' (' + str(len(self.images) - int(self.dataset_size*self.download_ratio)) + ' remaining)\n\n'
+        text += 'Downloaded images: ' + str(int(self.dataset_size*self.download_ratio)) + ' (' + str(len(self.images) - int(self.dataset_size*self.download_ratio)) + ' remaining)' + '<br> \n'
+        text += 'Images in `cache.csv`: ' + str(len(self.images))+ '\n\n'
                 
         text += '## 2 - Image Resolutions\n\n'
 
@@ -140,6 +178,7 @@ class DatasetCreator:
             text += '\n| LOD_'+str(s) + '                       | ('
             text += str(self.sizes[s]) + ' x ' + str(self.sizes[s]) + ')    |'
 
+        # create and save README.md file
         file = open(self.path_out+'\\README.md', 'a')
         file.write(text)
         file.close()
