@@ -2,14 +2,15 @@
 import pandas as pd
 import numpy as np
 import os
-from urllib import request, error
 import cv2
 from tqdm import tqdm
 import datetime
 
+from image_downloading import download_images_multiproc
+
 # colors for terminal output
 # (from: https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal)
-class bcolors:
+class TColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'
@@ -30,39 +31,38 @@ def make_dir(path):
         if os.path.exists(joined_path) is False:
             os.mkdir(joined_path)
 
-# returns the downloaded image of the given url
-def retrieve_image_from_url(url):
-    try:
-        response = request.urlopen(url)
+def resize_images(imgs, size):
+    output_imgs = []
 
-        img = np.array(bytearray(response.read()), dtype="uint8")
-        img = cv2.imdecode(img, cv2.IMREAD_COLOR)
-        return (True, img) 
+    for img in imgs:
+        output_imgs.append(cv2.resize(img, (size, size)))
 
-    # urllib exceptions
-    except error.HTTPError as err:
-        if err.code == 404:
-            print(bcolors.FAIL + "Page not found!" + bcolors.ENDC)
-        elif err.code == 403:
-            print(bcolors.FAIL + "Access denied!" + bcolors.ENDC)
-        else:
-            print(bcolors.FAIL + "HTTPError! Error code", str(err.code) + bcolors.ENDC)
-    except error.URLError as err:
-        print(bcolors.FAIL + "URLError: " + str(err.reason) + bcolors.ENDC)
+    return np.array(output_imgs)
 
+def save_images(path, imgs, sizes, start_index):
+    for s in range(len(sizes)):
+        dir = int(np.floor(start_index / 1e4))
+        sub_dir = int(np.floor(start_index / 1e3))
+        cropped_imgs = resize_images(imgs, sizes[s])
 
-    # cv2 error
-    except cv2.error as e:
-        print(bcolors.FAIL + "Image decoding failed!: " + e + bcolors.ENDC)
-        
-    # catch rest I didn't think could happen :)
-    except:
-        print(bcolors.FAIL + "Something else failed!" + bcolors.ENDC)
+        for i in range(start_index, np.shape(imgs)[0] + start_index):
+            if i % 1e4 == 0 and i!= 0:
+                dir += 1
+                sub_dir = 0
+            elif i % 1e3 == 0 and i!= 0:
+                sub_dir += 1
 
-    return (False, np.array([]))
+            dir_path = os.path.join(path, 'LOD_' + str(s), str(dir), str(sub_dir))
+            img_path = os.path.join(dir_path, 'image_' + str(i) + '.jpg')
+
+            make_dir(dir_path)
+
+            cv2.imwrite(os.path.join(img_path, img_path), cropped_imgs[i - start_index])
 
 class DatasetCreator:
-    def __init__(self, path_in, path_out, sizes=(256, 64), dataset_size=2e4, download_ratio=1):
+    def __init__(self, path_in, path_out, sizes=(256, 64), dataset_size=2e4,
+                download_ratio=1, dataset_type='Lite', author_name='unknown'):
+
         self.path_in = path_in
         self.path_out = path_out
 
@@ -71,12 +71,10 @@ class DatasetCreator:
         self.dataset_size = dataset_size
         self.download_ratio = download_ratio
 
-        self.images = np.array([])
-
         self.dataframe = pd.DataFrame()
 
-        self.dataset_type = 'Lite'
-        self.author_name = 'unknown'
+        self.dataset_type = dataset_type
+        self.author_name = author_name
 
     # loads 'photos.tsv000' from self.path_in into a dataframe
     def load_dataframe(self):
@@ -85,68 +83,32 @@ class DatasetCreator:
     # loads all the image urls into self.images
     # (for the future: here could be somekind of search algorithm for differing different types implemented)
     def search_images(self):
-        self.images = np.array(self.dataframe.loc[:, 'photo_image_url'])
+        urls = np.array(self.dataframe.loc[:, 'photo_image_url'])
 
         # prints a warning if user requests to many images
-        if len(self.images) < self.dataset_size:
-            print(bcolors.WARNING + 'Warning: The Unsplash Dataset contains just ' + str(len(self.images)) + ' images!' + bcolors.ENDC)
+        if len(urls) < self.dataset_size:
+            print(TColors.WARNING + 'Warning: The Unsplash Dataset contains just ' + str(len(urls)) + ' images!' + TColors.ENDC)
         else:
-            self.images = self.images[0:int(self.dataset_size)]
+            urls = urls[0:int(self.dataset_size)]
+
+        return urls
 
     # downloads all the images from self.images and saves them in self.path_out
     # this function is still messy and should be cleaned up!
-    def download_images(self):
-        # parent directory for all data
-        data_path = os.path.join(self.path_out, 'data')
+    def download_images(self, urls, batch_size, num_proc):
+        num_batches = int(len(urls) / batch_size)
+        split_urls = np.split(urls, num_batches)
 
-        # index of the directores and subdirectories
-        dir = 1
-        sub_dir = 4
+        for batch in tqdm(range(len(split_urls))):
+            images = download_images_multiproc(split_urls[batch], np.amax(self.sizes), num_proc)
 
-        # created first directories
-        for s in range(len(self.sizes)):
-            make_dir(os.path.join(data_path, 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)))
-
-        # iterates through all images
-        for i in tqdm(range(13843, int(self.dataset_size*self.download_ratio))):
-        # for every 1e4'th image, a new directory will be created
-            if i % 1e4 == 0 and i!= 0:
-                dir += 1
-                sub_dir = 0
-                # create new directories
-                for s in range(len(self.sizes)):
-                    make_dir(os.path.join(data_path, 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)))
-            # for every 1e3'th image, a new subdirectory will be created
-            elif i % 1e3 == 0 and i!= 0:
-                sub_dir += 1
-                # create new directories
-                for s in range(len(self.sizes)):
-                    make_dir(os.path.join(data_path, 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)))
-
-            # download the image
-            size_suffix = '?ixid=123123123&fit=crop&w='+str(self.sizes[0])+'&h='+str(self.sizes[0])
-            status, img = retrieve_image_from_url(self.images[i]+size_suffix)
-
-            # print warning if image couldn't be downloaded
-            if status is False:
-                print(bcolors.WARNING + 'Warning: The Image ' + self.images[i] + ' could not be downloaded!' + bcolors.ENDC)
-            else:
-                img_index = int(i - dir*1e4 - sub_dir*1e3)
-
-                # creates all LODs and saves them
-                for s in range(len(self.sizes)):
-                    img_path = 'LOD_'+str(s)+'\\'+str(dir)+'\\'+str(sub_dir)+'\\image_'+str(img_index)+'.jpg'
-                    cv2.imwrite(os.path.join(data_path, img_path), cv2.resize(img, (self.sizes[s], self.sizes[s])))
+            data_path = os.path.join(self.path_out, 'data')
+            save_images(data_path, images, self.sizes, batch*batch_size)
 
     # saves self.images in a .csv file
-    def save_cache(self):
-        df = pd.DataFrame(self.images)
+    def save_cache(self, urls):
+        df = pd.DataFrame(urls)
         df.to_csv(self.path_out+'\\cache.csv')
-
-    # requests additional information, which will be stored in a README.md file
-    def set_infos(self, dataset_type='Lite', author_name='unknown'):
-        self.dataset_type = dataset_type
-        self.author_name = author_name
 
     # creates a README.md file with information about the locally downloaded dataset
     def make_README(self):
