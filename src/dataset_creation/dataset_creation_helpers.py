@@ -6,7 +6,7 @@ import cv2
 from tqdm import tqdm
 import datetime
 
-from image_downloading import download_images_multiproc
+from image_downloader import retrieve_images_multiproc
 
 # colors for terminal output
 # (from: https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal)
@@ -31,6 +31,7 @@ def make_dir(path):
         if os.path.exists(joined_path) is False:
             os.mkdir(joined_path)
 
+# resizes an array of images to de desired squared size
 def resize_images(imgs, size):
     output_imgs = []
 
@@ -39,25 +40,21 @@ def resize_images(imgs, size):
 
     return np.array(output_imgs)
 
-def save_images(path, imgs, sizes, start_index):
+# saves all LODs of an array of images
+def save_images(path, imgs, sizes, batch_index):
     for s in range(len(sizes)):
-        dir = int(np.floor(start_index / 1e4))
-        sub_dir = int(np.floor(start_index / 1e3))
+        # resize image
         cropped_imgs = resize_images(imgs, sizes[s])
 
-        for i in range(start_index, np.shape(imgs)[0] + start_index):
-            if i % 1e4 == 0 and i!= 0:
-                dir += 1
-                sub_dir = 0
-            elif i % 1e3 == 0 and i!= 0:
-                sub_dir += 1
-
-            dir_path = os.path.join(path, 'LOD_' + str(s), str(dir), str(sub_dir))
+        for i in range(np.shape(imgs)[0]):
+            # prepare the paths of the image and directory
+            dir_path = os.path.join(path, 'LOD_' + str(s), 'BATCH_' + str(batch_index))
             img_path = os.path.join(dir_path, 'image_' + str(i) + '.jpg')
 
+            # save the image into the new directory
             make_dir(dir_path)
+            cv2.imwrite(os.path.join(img_path, img_path), cropped_imgs[i])
 
-            cv2.imwrite(os.path.join(img_path, img_path), cropped_imgs[i - start_index])
 
 class DatasetCreator:
     def __init__(self, path_in, path_out, sizes=(256, 64), dataset_size=2e4,
@@ -93,17 +90,26 @@ class DatasetCreator:
 
         return urls
 
-    # downloads all the images from self.images and saves them in self.path_out
-    # this function is still messy and should be cleaned up!
-    def download_images(self, urls, batch_size, num_proc):
+    # downloads all the images from urls and saves them in self.path_out
+    def download_images(self, urls, batch_size, num_proc, batch_range=(0, -1)):
         num_batches = int(len(urls) / batch_size)
+
+        # change batch_range if there was no custom entry made
+        if batch_range[0] > batch_range[1]:
+            batch_range = (0, num_batches)
+
         split_urls = np.split(urls, num_batches)
 
-        for batch in tqdm(range(len(split_urls))):
-            images = download_images_multiproc(split_urls[batch], np.amax(self.sizes), num_proc)
+        # check if the batch_range is out of range
+        if num_batches < batch_range[1]:
+            print(TColors.WARNING + 'Warning: There are just ' + str(len(split_urls)) + ' batches!' + TColors.ENDC)
+        else:
+            # download all the images in num_batches steps
+            for batch in tqdm(range(batch_range[0], batch_range[1])):
+                images = retrieve_images_multiproc(split_urls[batch], np.amax(self.sizes), num_proc)
 
-            data_path = os.path.join(self.path_out, 'data')
-            save_images(data_path, images, self.sizes, batch*batch_size)
+                data_path = os.path.join(self.path_out, 'data')
+                save_images(data_path, images, self.sizes, batch)
 
     # saves self.images in a .csv file
     def save_cache(self, urls):
@@ -111,7 +117,7 @@ class DatasetCreator:
         df.to_csv(self.path_out+'\\cache.csv')
 
     # creates a README.md file with information about the locally downloaded dataset
-    def make_README(self):
+    def make_README(self, urls):
         # create content in markdown
         text = '# Local download of the Unsplash Dataset\n\n'
 
@@ -128,8 +134,8 @@ class DatasetCreator:
 
         text += '## 2 - Dataset Parameters\n\n'
 
-        text += 'Downloaded images: ' + str(int(self.dataset_size*self.download_ratio)) + ' (' + str(len(self.images) - int(self.dataset_size*self.download_ratio)) + ' remaining)' + '<br> \n'
-        text += 'Images in `cache.csv`: ' + str(len(self.images))+ '\n\n'
+        text += 'Downloaded images: ' + str(int(self.dataset_size*self.download_ratio)) + ' (' + str(len(urls) - int(self.dataset_size*self.download_ratio)) + ' remaining)' + '<br> \n'
+        text += 'Images in `cache.csv`: ' + str(len(urls))+ '\n\n'
                 
         text += '## 2 - Image Resolutions\n\n'
 
