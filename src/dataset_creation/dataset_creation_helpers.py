@@ -32,19 +32,19 @@ def make_dir(path):
             os.mkdir(joined_path)
 
 # resizes an array of images to de desired squared size
-def resize_images(imgs, size):
+def resize_images(imgs, size, interpolation):
     output_imgs = []
 
     for img in imgs:
-        output_imgs.append(cv2.resize(img, (size, size)))
+        output_imgs.append(cv2.resize(img, (size, size), interpolation=interpolation))
 
     return np.array(output_imgs)
 
 # saves all LODs of an array of images
-def save_images(path, imgs, sizes, batch_index):
+def save_images(path, imgs, sizes, batch_index, interpolation):
     for s in range(len(sizes)):
         # resize image
-        cropped_imgs = resize_images(imgs, sizes[s])
+        cropped_imgs = resize_images(imgs, sizes[s], interpolation)
 
         for i in range(np.shape(imgs)[0]):
             # prepare the paths of the image and directory
@@ -58,15 +58,15 @@ def save_images(path, imgs, sizes, batch_index):
 
 class DatasetCreator:
     def __init__(self, path_in, path_out, sizes=(256, 64), dataset_size=2e4,
-                download_ratio=1, dataset_type='Lite', author_name='unknown'):
+                interpolation = cv2.INTER_CUBIC,dataset_type='Lite', author_name='unknown'):
 
         self.path_in = path_in
         self.path_out = path_out
 
         self.sizes = np.sort(sizes)[::-1]
+        self.interpolation = interpolation
 
         self.dataset_size = dataset_size
-        self.download_ratio = download_ratio
 
         self.dataframe = pd.DataFrame()
 
@@ -109,15 +109,52 @@ class DatasetCreator:
                 images = retrieve_images_multiproc(split_urls[batch], np.amax(self.sizes), num_proc)
 
                 data_path = os.path.join(self.path_out, 'data')
-                save_images(data_path, images, self.sizes, batch)
+                save_images(data_path, images, self.sizes, batch, self.interpolation)
 
     # saves self.images in a .csv file
     def save_cache(self, urls):
         df = pd.DataFrame(urls)
         df.to_csv(self.path_out+'\\cache.csv')
 
+    def estimate_dataset_size(self):
+        space = 0
+        a = 2.01462e-6
+        b = -5.93564e-5
+        c = 1.92251e-3
+        d = 5.25465
+        e = 2315.02
+        for s in self.sizes:
+            space += (a * np.square(s) + b * s + c)/(d * s + e)
+
+        print('Estimated dataset size: ' + TColors.BOLD + str(np.round(space * self.dataset_size, 2)) + TColors.ENDC + ' GB')
+
+
+    # returns the space used by the dataset
+    # (it is really slow and can be improved, maybee with: https://www.geeksforgeeks.org/how-to-get-size-of-folder-using-python/)
+    def get_used_space(self):
+        data_path = os.path.join(self.path_out, 'data')
+        size = 0
+
+        for root, dirs, files in os.walk(data_path, topdown=False):
+            for f in files:
+                size += os.path.getsize(os.path.join(root, f))
+        
+        return size
+
+    # returns the amount of images
+    # (it is really slow and can be improved)
+    def get_number_images(self):
+        data_path = os.path.join(self.path_out, 'data', 'LOD_0')
+        number = 0
+
+        for root, dirs, files in os.walk(data_path, topdown=False):
+            for _ in files:
+                number += 1
+
+        return number
+
     # creates a README.md file with information about the locally downloaded dataset
-    def make_README(self, urls):
+    def make_README(self, urls, batch_size=-1):
         # create content in markdown
         text = '# Local download of the Unsplash Dataset\n\n'
 
@@ -134,8 +171,15 @@ class DatasetCreator:
 
         text += '## 2 - Dataset Parameters\n\n'
 
-        text += 'Downloaded images: ' + str(int(self.dataset_size*self.download_ratio)) + ' (' + str(len(urls) - int(self.dataset_size*self.download_ratio)) + ' remaining)' + '<br> \n'
-        text += 'Images in `cache.csv`: ' + str(len(urls))+ '\n\n'
+        text += 'Downloaded images: ' + str(self.get_number_images()) + '<br>' + '\n'
+        text += 'Images in `cache.csv`: ' + str(len(urls)) + '<br>' + '\n'
+
+        if batch_size > 0:
+            num_batches = int(len(urls) / batch_size)
+            text += '> Batches: ' + str(num_batches) + '<br>' + '\n'
+            text += '> Batch size: ' + str(batch_size) + ' images per batch' + '<br>' + '\n\n'
+
+        text += 'Dataset size: **' + str(np.round(self.get_used_space() / 1073741824, 2)) + '** GB' + '\n\n'
                 
         text += '## 2 - Image Resolutions\n\n'
 

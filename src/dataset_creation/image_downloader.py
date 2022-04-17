@@ -1,6 +1,7 @@
 ### image_downloading.py ###
 import multiprocessing
 import requests
+import time
 
 import cv2
 import numpy as np
@@ -26,7 +27,6 @@ class Status(Enum):
     CRASH = 2 # if it crashed
     REPEAT = 3 # if it timedout and it should be tried again
 
-
 # retrieves one image from an url. The function is made to be called through a multiprocessing job,
 # therefore it can't output anything to the command line. It returns a status, the image, and a string with print messages.
 def retrieve_image_from_url(url, max_size):
@@ -49,22 +49,18 @@ def retrieve_image_from_url(url, max_size):
 
     # requests exeptions
     except requests.exceptions.HTTPError as e:
-        print_str = (TColors.FAIL + "HTTPError: " + str(e) + '\n' + TColors.WARNING
-                + "Note: URL: " + url + TColors.ENDC)
+        print_str += (TColors.FAIL + "HTTPError: " + str(e) + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
     except requests.exceptions.Timeout as e:
-        print_str = (TColors.FAIL + "Timeout: " + str(e) + '\n' + TColors.WARNING
-                + "Note: The image will be downloaded again later, URL: " + url + TColors.ENDC)
+        print_str += (TColors.FAIL + "Timeout: " + str(e) + '\n' + TColors.WARNING + "Note: The image will be downloaded again later, URL: " + url + TColors.ENDC)
         return (Status.REPEAT, np.array([]))
     except requests.exceptions.TooManyRedirects as e:
-        print_str = (TColors.FAIL + "TooManyRedirects: " + str(e) + '\n' + TColors.WARNING
-                + "Note: URL: " + url + TColors.ENDC)
+        print_str += (TColors.FAIL + "TooManyRedirects: " + str(e) + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
     except requests.exceptions.RequestException as e:
-        print_str = (TColors.FAIL + "RequestException: " + str(e) + '\n' + TColors.WARNING
-                + "Note: URL: " + url + TColors.ENDC)
+        print_str += (TColors.FAIL + "RequestException: " + str(e) + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
         
     # catch rest I didn't think could happen :)
     except:
-        print_str = (TColors.FAIL + "Something else failed!" + TColors.ENDC)
+        print_str += (TColors.FAIL + "Something else failed!" + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
 
     # False indicates, that the url has to be downloaded again
     return (Status.CRASH, np.array([]), print_str)
