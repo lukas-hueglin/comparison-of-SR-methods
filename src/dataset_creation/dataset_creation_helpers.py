@@ -6,7 +6,8 @@ import cv2
 from tqdm import tqdm
 import datetime
 
-from image_downloader import retrieve_images_multiproc
+from dataset_creation import image_downloader
+
 
 # colors for terminal output
 # (from: https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal)
@@ -106,7 +107,7 @@ class DatasetCreator:
         else:
             # download all the images in num_batches steps
             for batch in tqdm(range(batch_range[0], batch_range[1])):
-                images = retrieve_images_multiproc(split_urls[batch], np.amax(self.sizes), num_proc)
+                images = image_downloader.retrieve_images_multiproc(split_urls[batch], np.amax(self.sizes), num_proc)
 
                 data_path = os.path.join(self.path_out, 'data')
                 save_images(data_path, images, self.sizes, batch, self.interpolation)

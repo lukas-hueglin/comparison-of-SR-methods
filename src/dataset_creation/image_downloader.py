@@ -1,7 +1,6 @@
 ### image_downloading.py ###
 import multiprocessing
 import requests
-import time
 
 import cv2
 import numpy as np
