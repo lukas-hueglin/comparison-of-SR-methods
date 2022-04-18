@@ -1,10 +1,11 @@
 ### architectures.py ###
 
-def SRGAN_loss():
-    pass
+from keras import layers, Sequential
 
-def gen_loss():
-    pass
+def build_ResNet():
+    network = Sequential()
+    return network
 
-def disc_loss():
-    pass
+def build_SRGAN_disc():
+    network = Sequential()
+    return network
