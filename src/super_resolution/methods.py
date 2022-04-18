@@ -3,13 +3,15 @@
 import tensorflow as tf
 from abc import ABC, abstractmethod
 
+from super_resolution import Model
+
 class Method(ABC):
     def __init__(self):
         super().__init__()
 
     @abstractmethod
     def train_method(self, feature, label):
-        pass
+        return label
 
 
 class AdversarialNetwork(Method):
@@ -37,10 +39,12 @@ class AdversarialNetwork(Method):
             disc_loss = self.discriminator.loss_function(real_output, fake_output)
 
         gen_gradient = gen_tape.gradient(gen_loss, self.generator.network.trainable_variables)
-        disc_gradient = disc_tape.gradient(gen_loss, self.discriminator.network.trainable_variables)
+        disc_gradient = disc_tape.gradient(disc_loss, self.discriminator.network.trainable_variables)
 
         self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.trainable_variables))
         self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.trainable_variables))
+
+        return generated_image
 
 
 class SingleNetwork(Method):
@@ -59,5 +63,6 @@ class SingleNetwork(Method):
             loss = self.network.loss_function(generated_image, label)
 
         gradient = tape.gradient(loss, self.network.network.trainable_variables)
-
         self.network.optimizer.apply_gradients(zip(gradient, self.network.trainable_variables))
+
+        return generated_image
