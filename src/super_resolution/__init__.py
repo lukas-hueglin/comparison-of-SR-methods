@@ -12,3 +12,6 @@ from .upsampling import lanczos
 from .upsampling import Framework
 from .upsampling import PreUpsampling
 from .upsampling import ProgressiveUpsampling
+
+from .presets import build_SRGAN
+from .presets import build_SRResNet

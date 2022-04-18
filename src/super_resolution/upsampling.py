@@ -54,7 +54,7 @@ class Framework():
 
 
 class PreUpsampling(Framework):
-    def __init__(self, input_res=None, output_res=None, method=None, upsample_function=None):
+    def __init__(self, input_res=None, output_res=None, upsample_function=None, method=None):
         super().__init__(input_res, output_res, upsample_function)
 
         self.method = method
