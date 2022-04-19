@@ -1,10 +1,12 @@
 ### dataset_creation_helpers.py ###
+from ast import comprehension
 import pandas as pd
 import numpy as np
 import os
 import cv2
 from tqdm import tqdm
 import datetime
+import h5py
 
 from dataset_creation import image_downloader
 
@@ -41,20 +43,22 @@ def resize_images(imgs, size, interpolation):
 
     return np.array(output_imgs)
 
-# saves all LODs of an array of images
+# saves all LODs of an array of images into a hdf5 file
+# (with help from: "GANs mit PyTorch selbst programmieren",
+# page: "112", link: https://github.com/makeyourownneuralnetwork/gan/blob/master/10_celeba_download_make_hdf5.ipynb)
 def save_images(path, imgs, sizes, batch_index, interpolation):
     for s in range(len(sizes)):
         # resize image
         cropped_imgs = resize_images(imgs, sizes[s], interpolation)
+        # specify the location of the hdf5_file
+        hdf5_file = os.path.join(path, 'LOD_' + str(s), '.hdf5_file')
 
-        for i in range(np.shape(imgs)[0]):
-            # prepare the paths of the image and directory
-            dir_path = os.path.join(path, 'LOD_' + str(s), 'BATCH_' + str(batch_index))
-            img_path = os.path.join(dir_path, 'image_' + str(i) + '.jpg')
+        with h5py.File(hdf5_file, 'w') as hf:
+            for i in range(np.shape(imgs)[0]):
+                    # prepare the paths of the image and directory
+                    img_path = 'BATCH_' + str(batch_index) + '/image_' + str(i) + '.jpg'
 
-            # save the image into the new directory
-            make_dir(dir_path)
-            cv2.imwrite(os.path.join(img_path, img_path), cropped_imgs[i])
+                    hf.create_dataset(img_path, data=imgs[i], compression="gzip", compression_opts=9)
 
 
 class DatasetCreator:
