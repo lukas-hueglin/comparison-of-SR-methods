@@ -3,10 +3,19 @@
 import os
 import cv2
 import numpy as np
-from tqdm import tqdm
+import h5py
+import matplotlib.pyplot as plt
 
 from terminal_output import TColors
 
+## helper functions ##
+
+def visitor_func(name, node):
+    if isinstance(node, h5py.Dataset):
+        return name
+        
+
+## DatasetLoader class ##
 class DatasetLoader():
     def __init__(self, path=None, feature_lod = None, label_lod = None, train_ratio = 0.8):
         self.path = path
@@ -23,30 +32,29 @@ class DatasetLoader():
         self.feature_lod = feature_lod
         self.label_lod = label_lod
 
-    def load_features(self):
-        if self.path is not None and self.feature_lod is not None:
-            data_path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod))
-            images = []
+    def load_images(self):
+        if self.path != None and self.feature_lod != None and self.label_lod != None:
+            feature_path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod) + '.hdf5')
+            label_path = os.path.join(self.path, 'data', 'LOD_' + str(self.label_lod) + '.hdf5')
 
-            for path, subdirs, files in os.walk(data_path):
-                for name in files:
-                    images.append(cv2.imread(os.path.join(path, name)))
+            features = []
+            labels = []
 
-            return images
+            with h5py.File(feature_path, 'r') as hf:
+                groups = hf.keys()
+                for g in groups:
+                    names = hf[g].keys()
+                    for n in names:
+                        features.append(np.array(hf[g + '/' +n]))
 
-        else:
-            print(TColors.WARNING + 'Path and feature_lod is not specified!' + TColors.ENDC)
+            with h5py.File(label_path, 'r') as hf:
+                groups = hf.keys()
+                for g in groups:
+                    names = hf[g].keys()
+                    for n in names:
+                        labels.append(np.array(hf[g + '/' +n]))
 
-    def load_labels(self):
-        if self.path is not None and self.feature_lod is not None:
-            data_path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod))
-            images = []
-
-            for path, subdirs, files in os.walk(data_path):
-                for name in files:
-                    images.append(cv2.imread(os.path.join(path, name)))
-
-            return images
+            return np.array(features), np.array(labels)
 
         else:
             print(TColors.WARNING + 'Path and feature_lod is not specified!' + TColors.ENDC)

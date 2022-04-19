@@ -47,18 +47,20 @@ def resize_images(imgs, size, interpolation):
 # (with help from: "GANs mit PyTorch selbst programmieren",
 # page: "112", link: https://github.com/makeyourownneuralnetwork/gan/blob/master/10_celeba_download_make_hdf5.ipynb)
 def save_images(path, imgs, sizes, batch_index, interpolation):
+    make_dir(path)
+
     for s in range(len(sizes)):
         # resize image
         cropped_imgs = resize_images(imgs, sizes[s], interpolation)
         # specify the location of the hdf5_file
-        hdf5_file = os.path.join(path, 'LOD_' + str(s), '.hdf5_file')
+        hdf5_file = os.path.join(path, 'LOD_' + str(s) + '.hdf5')
 
-        with h5py.File(hdf5_file, 'w') as hf:
+        with h5py.File(hdf5_file, 'a') as hf:
             for i in range(np.shape(imgs)[0]):
                     # prepare the paths of the image and directory
                     img_path = 'BATCH_' + str(batch_index) + '/image_' + str(i) + '.jpg'
 
-                    hf.create_dataset(img_path, data=imgs[i], compression="gzip", compression_opts=9)
+                    hf.create_dataset(img_path, data=cropped_imgs[i], compression="gzip", compression_opts=9)
 
 
 class DatasetCreator:
