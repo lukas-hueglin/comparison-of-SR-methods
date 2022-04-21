@@ -6,8 +6,7 @@ import numpy as np
 import sys
 from abc import ABC, abstractmethod
 
-from super_resolution import Method
-from super_resolution.utils import TColors
+from utils import TColors
 
 
 ## upsampling functions ##
@@ -21,7 +20,7 @@ def lanczos(img, res):
     return cv2.resize(img, (res, res), interpolation=cv2.INTER_LANCZOS4)
 
 ## Framework classes ##
-class Framework():
+class Framework(ABC):
     def __init__(self, input_res = None, output_res = None, upsample_function = None):
 
         self.input_res = input_res

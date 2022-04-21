@@ -3,7 +3,7 @@
 import tensorflow as tf
 from abc import ABC, abstractmethod
 
-from super_resolution import Model
+from model import Model
 
 class Method(ABC):
     def __init__(self):

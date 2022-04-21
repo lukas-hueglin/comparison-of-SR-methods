@@ -15,3 +15,5 @@ from .upsampling import ProgressiveUpsampling
 
 from .presets import build_SRGAN
 from .presets import build_SRResNet
+
+from pipeline import Pipeline

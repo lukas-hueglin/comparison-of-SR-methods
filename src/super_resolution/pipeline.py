@@ -12,18 +12,13 @@ from upsampling import Framework
 
 import tensorflow as tf
 
-
-## helper enums ##
-
-class Tasks(Enum):
-    TRAIN = 1
-    VALIDATE = 2
-
 ## helper_functions ##
+
+
 
 ## Pipeline class ##
 class Pipeline():
-    def __init__(self, framework = None, epochs = 10, training_data = None, validation_data = None, sample_image = None, tasks = None):
+    def __init__(self, framework = None, epochs = 10, training_data = None, validation_data = None, sample_image = None):
         self.framework = framework
         self.epochs = epochs
 
@@ -31,7 +26,6 @@ class Pipeline():
         self.validation_data = validation_data
 
         self.sample_image = sample_image
-        self.tasks = tasks
 
     def set_framework(self, framework):
         self.framework = framework
@@ -45,13 +39,10 @@ class Pipeline():
     def set_validation_data(self, validation_data):
         self.validation_data = validation_data
 
-    def set_tasks(self, tasks):
-        self.tasks = tasks
-
     def train(self):
         if self.training_data != None and self.framework != None:
             for epoch in tqdm(range(self.epochs)):
                 for batch in self.training_data:
-                    self.framework.train_steps(batch[0], batch[1])
+                    self.framework.train_step(batch[0], batch[1])
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)

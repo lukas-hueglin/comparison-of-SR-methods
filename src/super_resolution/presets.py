@@ -1,9 +1,11 @@
 ### presets.py ###
 
-from keras.optimizers import Adam
-from super_resolution import upsampling, methods, Model
-from super_resolution.network import architectures as arch
-from super_resolution.network import loss_functions as lf
+from tensorflow.keras.optimizers import Adam
+from model import Model
+from network import architectures as arch
+from network import loss_functions as lf
+
+import upsampling, methods
 
 
 def build_SRGAN():
@@ -47,7 +49,7 @@ def build_SRResNet():
         optimizer=Adam(1e-4)
     )
 
-    method = methods.SingleNetwork(generator=network)
+    method = methods.SingleNetwork(network=network)
 
     framework = upsampling.PreUpsampling(
         input_res=INPUT_RES,
