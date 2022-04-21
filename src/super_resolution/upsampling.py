@@ -1,7 +1,7 @@
 ### upsampling.py ###
 
+from statistics import median_high
 import tensorflow as tf
-import cv2
 import numpy as np
 import sys
 from abc import ABC, abstractmethod
@@ -11,13 +11,13 @@ from utils import TColors
 
 ## upsampling functions ##
 def bicubic(img, res):
-    return cv2.resize(img, (res, res), interpolation=cv2.INTER_CUBIC)
+    return tf.image.resize(img, (res, res), method=tf.image.ResizeMethod.BICUBIC)
 
 def bilinear(img, res):
-    return cv2.resize(img, (res, res), interpolation=cv2.INTER_LINEAR)
+    return tf.image.resize(img, (res, res), method=tf.image.ResizeMethod.BICUBIC)
 
 def lanczos(img, res):
-    return cv2.resize(img, (res, res), interpolation=cv2.INTER_LANCZOS4)
+    return tf.image.resize(img, (res, res), method=tf.image.ResizeMethod.LANCZOS3)
 
 ## Framework classes ##
 class Framework(ABC):
@@ -64,10 +64,7 @@ class PreUpsampling(Framework):
 
     @tf.function
     def train_step(self, features, labels):
-        upsampled_features = []
-        
-        for f in features:
-                upsampled_features.append(self.upsample_function(f, self.output_res))
+        upsampled_features = self.upsample_function(features, self.output_res)
 
         self.method.train_method(upsampled_features, labels)
 
@@ -93,13 +90,7 @@ class ProgressiveUpsampling(Framework):
         for i in range(self.steps):
             res = self.input_res * np.power(2, i)
 
-            upsampled_features = []
-            downsampled_labels = []
-
-            for f in features:
-                upsampled_features.append(self.upsample_function(f, res))
-
-            for l in labels:
-                downsampled_labels.append(lanczos(l, res)) # using lanczos because it's a good downsample method
+            upsampled_features = self.upsample_function(features, res)
+            downsampled_labels = lanczos(labels, res) # using lanczos because it's a good downsample method
 
             features = self.method.train_method(upsampled_features, downsampled_labels)

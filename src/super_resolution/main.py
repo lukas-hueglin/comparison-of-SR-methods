@@ -27,7 +27,7 @@ def main():
     training_data, _ = dataset_loader.load_supervised_dataset(num_images=10)
 
     pipeline = Pipeline(
-        framework=presets.build_SRResNet(),
+        framework=presets.build_SRDemo(),
         epochs = EPOCHS,
         training_data=training_data,
     )

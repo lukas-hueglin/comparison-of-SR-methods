@@ -1,6 +1,7 @@
 ### presets.py ###
 
-from tensorflow.keras.optimizers import Adam
+import tensorflow as tf
+
 from model import Model
 from network import architectures as arch
 from network import loss_functions as lf
@@ -14,14 +15,14 @@ def build_SRGAN():
 
     generator = Model(
         network=arch.build_ResNet(),
-        loss_function=lf.SRGAN_loss(),
-        optimizer=Adam(1e-4)
+        loss_function=lf.SRGAN_loss,
+        optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
     discriminator = Model(
         network=arch.build_SRGAN_disc(),
-        loss_function=lf.disc_loss(),
-        optimizer=Adam(1e-4)
+        loss_function=lf.disc_loss,
+        optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
     method = methods.AdversarialNetwork(
@@ -45,8 +46,30 @@ def build_SRResNet():
 
     network = Model(
         network=arch.build_ResNet(),
-        loss_function=lf.SRGAN_loss(),
-        optimizer=Adam(1e-4)
+        loss_function=lf.SRGAN_loss,
+        optimizer=tf.keras.optimizers.Adam(1e-4)
+    )
+
+    method = methods.SingleNetwork(network=network)
+
+    framework = upsampling.PreUpsampling(
+        input_res=INPUT_RES,
+        output_res=OUTPUT_RES,
+        upsample_function=upsampling.bicubic,
+        method=method
+    )
+
+    return framework
+
+
+def build_SRDemo():
+    INPUT_RES = 32
+    OUTPUT_RES = 64
+
+    network = Model(
+        network=arch.build_Demo(),
+        loss_function=lf.MSE_loss,
+        optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
     method = methods.SingleNetwork(network=network)
