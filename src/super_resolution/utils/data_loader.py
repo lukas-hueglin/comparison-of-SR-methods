@@ -7,12 +7,12 @@ import numpy as np
 import h5py
 from tqdm import tqdm
 
-from terminal_output import TColors
+from utils import TColors
 
 ## helper functions ##
 
 def load_images(path, first_image = 0, num_images = -1):
-        images = []
+        imgs = []
 
         print(TColors.OKBLUE + 'Loading images from ' + path + ':\n' + TColors.ENDC)
         with h5py.File(path, 'r') as hf:
@@ -23,14 +23,14 @@ def load_images(path, first_image = 0, num_images = -1):
                     images = hf[b].keys()
                     for i in images:
                         if image_count >= first_image:
-                            images.append(np.array(hf[b+'/'+i]))
+                            imgs.append(np.array(hf[b+'/'+i]))
                             image_count += 1
                         if image_count >= num_images-1:
                             raise StopIteration
             except StopIteration:
                 pass
 
-        return np.array(images)
+        return np.array(imgs)
 
 ## DatasetLoader class ##
 class DatasetLoader():
@@ -82,8 +82,10 @@ class DatasetLoader():
             features = load_images(feature_path, first_image, num_images)
             lables = load_images(label_path, first_image, num_images)
 
-            f_train, f_validation = np.split(features, int(features.shape[0]*self.train_ratio))
-            l_train, l_validation = np.split(lables, int(lables.shape[0]*self.train_ratio))
+            f_train = features[:int(features.shape[0]*self.train_ratio)]
+            f_validation = features[int(features.shape[0]*self.train_ratio):]
+            l_train = lables[:int(lables.shape[0]*self.train_ratio)]
+            l_validation = lables[int(lables.shape[0]*self.train_ratio):]
 
             train_dataset = tf.data.Dataset.from_tensor_slices((f_train, l_train))
             validation_dataset = tf.data.Dataset.from_tensor_slices((f_validation, l_validation))

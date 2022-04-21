@@ -10,8 +10,8 @@ class Method(ABC):
         super().__init__()
 
     @abstractmethod
-    def train_method(self, feature, label):
-        return label
+    def train_method(self, features, labels):
+        return labels
 
 
 class AdversarialNetwork(Method):
@@ -28,14 +28,14 @@ class AdversarialNetwork(Method):
         self.discriminator = discriminator
 
     # (from the tensorflow documentation: https://www.tensorflow.org/tutorials/generative/dcgan)
-    def train_method(self, feature, label):
+    def train_method(self, features, labels):
         with tf.GradientTape as gen_tape, tf.GradientTape as disc_tape:
-            generated_image = self.generator.network(feature, training=True)
+            generated_image = self.generator.network(features, training=True)
 
-            real_output = self.discriminator.network(label, training=True)
+            real_output = self.discriminator.network(labels, training=True)
             fake_output = self.discriminator.network(generated_image, training=True)
 
-            gen_loss = self.generator.loss_function(generated_image, label, fake_output)
+            gen_loss = self.generator.loss_function(generated_image, labels, fake_output)
             disc_loss = self.discriminator.loss_function(real_output, fake_output)
 
         gen_gradient = gen_tape.gradient(gen_loss, self.generator.network.trainable_variables)
@@ -56,11 +56,11 @@ class SingleNetwork(Method):
     def set_network(self, network):
         self.network = network
 
-    def train_method(self, feature, label):
+    def train_method(self, features, labels):
         with tf.GradientTape as tape:
-            generated_image = self.network.network(feature, training=True)
+            generated_image = self.network.network(features, training=True)
 
-            loss = self.network.loss_function(generated_image, label)
+            loss = self.network.loss_function(generated_image, labels)
 
         gradient = tape.gradient(loss, self.network.network.trainable_variables)
         self.network.optimizer.apply_gradients(zip(gradient, self.network.trainable_variables))

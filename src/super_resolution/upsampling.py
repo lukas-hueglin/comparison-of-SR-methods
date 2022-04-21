@@ -64,9 +64,13 @@ class PreUpsampling(Framework):
 
 
     @tf.function
-    def train_step(self, feature, label):
-        upsampled_feature = self.upsample_function(feature, self.output_res)
-        self.method.train_method(upsampled_feature, label)
+    def train_step(self, features, labels):
+        upsampled_features = []
+        
+        for f in features:
+                upsampled_features.append(self.upsample_function(f, self.output_res))
+
+        self.method.train_method(upsampled_features, labels)
 
 
 class ProgressiveUpsampling(Framework):
@@ -86,11 +90,17 @@ class ProgressiveUpsampling(Framework):
 
 
     @tf.function
-    def train_step(self, feature, label):
+    def train_step(self, features, labels):
         for i in range(self.steps):
             res = self.input_res * np.power(2, i)
 
-            upsampled_feature = self.upsample_function(feature, res)
-            downsampled_label = lanczos(label, res) # using lanczos because it's a good downsample method
+            upsampled_features = []
+            downsampled_labels = []
 
-            feature = self.method.train_method(upsampled_feature, downsampled_label)
+            for f in features:
+                upsampled_features.append(self.upsample_function(f, res))
+
+            for l in labels:
+                downsampled_labels.append(lanczos(l, res)) # using lanczos because it's a good downsample method
+
+            features = self.method.train_method(upsampled_features, downsampled_labels)
