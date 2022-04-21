@@ -1,10 +1,12 @@
 ### dataset_creation_helpers.py ###
+from ast import comprehension
 import pandas as pd
 import numpy as np
 import os
 import cv2
 from tqdm import tqdm
 import datetime
+import h5py
 
 from dataset_creation import image_downloader
 
@@ -41,20 +43,28 @@ def resize_images(imgs, size, interpolation):
 
     return np.array(output_imgs)
 
-# saves all LODs of an array of images
+# saves all LODs of an array of images into a hdf5 file
+# (with help from: "GANs mit PyTorch selbst programmieren",
+# page: "112", link: https://github.com/makeyourownneuralnetwork/gan/blob/master/10_celeba_download_make_hdf5.ipynb)
+# (and with halp from: https://stackoverflow.com/questions/66631284/convert-a-folder-comprising-jpeg-images-to-hdf5/66641176#66641176)
 def save_images(path, imgs, sizes, batch_index, interpolation):
+    make_dir(path)
+
     for s in range(len(sizes)):
         # resize image
         cropped_imgs = resize_images(imgs, sizes[s], interpolation)
+        # specify the location of the hdf5_file
+        hdf5_file = os.path.join(path, 'LOD_' + str(s) + '.hdf5')
 
-        for i in range(np.shape(imgs)[0]):
-            # prepare the paths of the image and directory
-            dir_path = os.path.join(path, 'LOD_' + str(s), 'BATCH_' + str(batch_index))
-            img_path = os.path.join(dir_path, 'image_' + str(i) + '.jpg')
+        # open or create .hdf5 file
+        with h5py.File(hdf5_file, 'a') as hf:
+            for i in range(np.shape(cropped_imgs)[0]):
+                name = 'BATCH_' + str(batch_index) + '/image_' + str(i)
+                try:
+                    hf.create_dataset(name, data=cropped_imgs[i], dtype=int, compression='gzip')
+                except ValueError:
+                    print(TColors.WARNING + name + ' already exists!')
 
-            # save the image into the new directory
-            make_dir(dir_path)
-            cv2.imwrite(os.path.join(img_path, img_path), cropped_imgs[i])
 
 
 class DatasetCreator:
@@ -143,16 +153,40 @@ class DatasetCreator:
         return size
 
     # returns the amount of images
-    # (it is really slow and can be improved)
     def get_number_images(self):
-        data_path = os.path.join(self.path_out, 'data', 'LOD_0')
+        data_path = os.path.join(self.path_out, 'data', 'LOD_0.hdf5')
         number = 0
 
-        for root, dirs, files in os.walk(data_path, topdown=False):
-            for _ in files:
-                number += 1
+        with h5py.File(data_path, 'r') as hf:
+            names = hf.keys()
+            for n in names:
+                number += np.shape(hf[n])[0]
 
         return number
+
+    # converts the images in a folder structure to a .hdf5 file
+    def make_hdf5(self, batch_range=(0, -1)):
+        # change batch_range if there was no custom entry made
+        if batch_range[0] > batch_range[1]:
+            batch_range = (0, len(os.listdir(lod0_path)))
+
+        data_path = os.path.join(self.path_out, 'data')
+        lod0_path = os.path.join(data_path, 'LOD_0')
+
+        # iterate over all batches
+        for batch in tqdm(range(batch_range[0], batch_range[1])):
+            batch_path = os.path.join(lod0_path, 'BATCH_'+str(batch))
+            imgs = []
+
+            # load all images
+            for img in os.listdir(batch_path):
+                img = cv2.imread(os.path.join(batch_path, img))[:, :, [2, 1, 0]]
+                imgs.append(img)
+
+            # save all images
+            save_images(data_path, imgs, self.sizes, batch, self.interpolation)
+
+            
 
     # creates a README.md file with information about the locally downloaded dataset
     def make_README(self, urls, batch_size=-1):

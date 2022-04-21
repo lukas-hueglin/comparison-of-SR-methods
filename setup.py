@@ -18,6 +18,7 @@ setup(
         'pandas==1.4.1',
         'tqdm==4.63.1',
         'requests==2.27.1',
-        'tensorflow==2.8.0'
+        'tensorflow==2.8.0',
+        'h5py==3.6.0'
     ]
 )
