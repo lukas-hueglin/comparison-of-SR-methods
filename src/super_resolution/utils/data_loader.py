@@ -1,5 +1,6 @@
 ### data_loader.py ###
 
+from cProfile import label
 import os
 import numpy as np
 import h5py
@@ -10,10 +11,7 @@ from terminal_output import TColors
 
 ## helper functions ##
 
-def visitor_func(name, node):
-    if isinstance(node, h5py.Dataset):
-        return name
-        
+
 
 ## DatasetLoader class ##
 class DatasetLoader():
@@ -39,13 +37,13 @@ class DatasetLoader():
         self.ds_batch_size = ds_batch_size
         self.ds_num_batches = ds_num_batches
 
-    def load_images(self, image_range=(0, -1)):
+    def load_images(self, first_image = 0, num_images = -1):
         if (self.path != None and self.feature_lod != None and self.label_lod != None
                 and self.ds_batch_size != None and self.ds_num_batches != None):
 
-                    # change batch_range if there was no custom entry made
-            if image_range[0] > image_range[1]:
-                image_range = (0, self.ds_num_batches * self.ds_batch_size)
+            # change batch_range if there was no custom entry made
+            if num_images <= -1:
+                num_images = self.ds_num_batches * self.ds_batch_size
 
             feature_path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod) + '.hdf5')
             label_path = os.path.join(self.path, 'data', 'LOD_' + str(self.label_lod) + '.hdf5')
@@ -61,11 +59,11 @@ class DatasetLoader():
                     for b in tqdm(batches):
                         images = hf[b].keys()
                         for i in images:
-                            if image_count >= image_range[0]:
+                            if image_count >= first_image:
                                 features.append(np.array(hf[b+'/'+i]))
-                            if image_count >= image_range[1]-1:
+                                image_count += 1
+                            if image_count >= num_images-1:
                                 raise StopIteration
-                            image_count += 1
                 except StopIteration:
                     pass
 
@@ -77,11 +75,11 @@ class DatasetLoader():
                     for b in tqdm(batches):
                         images = hf[b].keys()
                         for i in images:
-                            if image_count >= image_range[0]:
+                            if image_count >= first_image:
                                 labels.append(np.array(hf[b+'/'+i]))
-                            if image_count >= image_range[1]-1:
+                                image_count += 1
+                            if image_count >= num_images-1:
                                 raise StopIteration
-                            image_count += 1
                 except StopIteration:
                     pass
 
@@ -89,3 +87,19 @@ class DatasetLoader():
 
         else:
             print(TColors.WARNING + 'Some variables are not specified!' + TColors.ENDC)
+
+dataset_loader = DatasetLoader(
+    path='D:\Local UNSPLASH Dataset Full',
+    feature_lod=5,
+    label_lod=4,
+    ds_batch_size=1000,
+    ds_num_batches=100
+)
+
+features, lables = dataset_loader.load_images()
+
+plt.imshow(features[0])
+plt.show()
+plt.imshow(lables[0])
+plt.show()
+print(features.shape, lables.shape)

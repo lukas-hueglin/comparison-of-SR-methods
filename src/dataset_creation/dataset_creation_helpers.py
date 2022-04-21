@@ -7,7 +7,6 @@ import cv2
 from tqdm import tqdm
 import datetime
 import h5py
-import glob
 
 from dataset_creation import image_downloader
 
@@ -181,7 +180,8 @@ class DatasetCreator:
 
             # load all images
             for img in os.listdir(batch_path):
-                imgs.append(cv2.imread(os.path.join(batch_path, img)))
+                img = cv2.imread(os.path.join(batch_path, img))[:, :, [2, 1, 0]]
+                imgs.append(img)
 
             # save all images
             save_images(data_path, imgs, self.sizes, batch, self.interpolation)
