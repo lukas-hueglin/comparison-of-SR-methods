@@ -1,53 +1,54 @@
 ### main.py ###
 
-import tensorflow as tf
-
-import cv2
-import matplotlib.pyplot as plt
-
-from utils import DatasetLoader
+from utils import DatasetLoader, SampleLoader, DatasetType
 from pipeline import Pipeline
 
 import presets
 
-## global parameters
 
+## global parameters
 EPOCHS = 10
 BATCH_SIZE = 64
 BUFFER_SIZE = 1000
 
 ## main function
-
 def main():
+
+    # create dataset loader
     dataset_loader = DatasetLoader(
-        path='D:\Local UNSPLASH Dataset Full',
+        path='D:\\Local UNSPLASH Dataset Full',
         feature_lod=5,
         label_lod=3,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
-        ds_batch_size=1000,
-        ds_num_batches=100
+        dataset_type=DatasetType.SUPERVISED
     )
 
-    training_data, _ = dataset_loader.load_supervised_dataset(num_images=1000)
+    # create sample loader
+    sample_loader = SampleLoader(
+        path='D:\\UNSPLASH Samples',
+        lod=5
+    )
 
-    img = cv2.imread('C:\\Users\\lukas\\source\\repos\\comparison-of-SR-methods\\images\\Unsplash_Lite_01_32.jpg')
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)/255
+    # load data
+    training_data, _ = dataset_loader.load_dataset(num_images=1000)
+    sample_images = sample_loader.load_samples() 
 
-    tensor = tf.convert_to_tensor(img, dtype=tf.dtypes.float32)
-    sample_images = tf.expand_dims(tensor, axis=0)
-
+    # create pipeline
     pipeline = Pipeline(
         framework=presets.build_SRDemo(),
         epochs = EPOCHS,
         training_data=training_data,
+        
+        # if you don't have sample images or don't need it just set it None
         sample_images=sample_images
     )
 
+    # train
     pipeline.train()
 
 
-## main function call ##
 
+## main function call ##
 if __name__ == '__main__':
     main()

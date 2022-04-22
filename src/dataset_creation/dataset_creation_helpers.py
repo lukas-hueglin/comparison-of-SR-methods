@@ -166,12 +166,12 @@ class DatasetCreator:
 
     # converts the images in a folder structure to a .hdf5 file
     def make_hdf5(self, batch_range=(0, -1)):
+        data_path = os.path.join(self.path_out, 'data')
+        lod0_path = os.path.join(data_path, 'LOD_0')
+
         # change batch_range if there was no custom entry made
         if batch_range[0] > batch_range[1]:
             batch_range = (0, len(os.listdir(lod0_path)))
-
-        data_path = os.path.join(self.path_out, 'data')
-        lod0_path = os.path.join(data_path, 'LOD_0')
 
         # iterate over all batches
         for batch in tqdm(range(batch_range[0], batch_range[1])):

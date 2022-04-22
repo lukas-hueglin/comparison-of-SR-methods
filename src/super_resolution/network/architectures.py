@@ -1,16 +1,23 @@
 ### architectures.py ###
+# This module includes the build functions, which return a specific tensorflow
+# model architecture. Every function with the make_ prefix will return such a network.
+##
 
 from keras import layers, Sequential
 
-def build_ResNet():
+
+# A placeholder function for the SRResNet architecture
+def make_SRResNet():
     network = Sequential()
     return network
 
-def build_SRGAN_disc():
+# A placeholder function for the SRGan discriminator
+def make_SRGAN_disc():
     network = Sequential()
     return network
 
-def build_Demo():
+# This network is just for test purposes and isn't build for achieving great accuracies
+def make_Demo():
     network = Sequential()
 
     network.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)))

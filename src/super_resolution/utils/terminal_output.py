@@ -1,7 +1,9 @@
 ### terminal_output.py ###
+# This module contains the TColors class for making colored Error messages in the terminal.
+# (from: https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal)
+
 
 # colors for terminal output
-# (from: https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal)
 class TColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
