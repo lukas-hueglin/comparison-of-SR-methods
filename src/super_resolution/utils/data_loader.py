@@ -23,7 +23,7 @@ def load_images(path, first_image = 0, num_images = -1):
                     images = hf[b].keys()
                     for i in images:
                         if image_count >= first_image:
-                            imgs.append(np.array(hf[b+'/'+i]))
+                            imgs.append(np.array(hf[b+'/'+i])/255)
                             image_count += 1
                         if image_count >= num_images-1:
                             raise StopIteration
@@ -47,9 +47,6 @@ class DatasetLoader():
         self.ds_num_batches = ds_num_batches
 
         self.train_ratio = train_ratio
-
-        self.training_dataset = None
-        self.validation_dataset = None
 
     def set_path(self, path):
         self.path = path

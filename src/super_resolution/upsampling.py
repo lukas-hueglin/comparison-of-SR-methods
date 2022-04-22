@@ -21,12 +21,13 @@ def lanczos(img, res):
 
 ## Framework classes ##
 class Framework(ABC):
-    def __init__(self, input_res = None, output_res = None, upsample_function = None):
+    def __init__(self, input_res = None, output_res = None, upsample_function = None, name = 'framework'):
 
         self.input_res = input_res
         self.output_res = output_res
 
         self.upsample_function = upsample_function
+        self.name = name
 
         self.check_status()
 
@@ -51,10 +52,14 @@ class Framework(ABC):
     def train_step(self, feature, label):
         pass
 
+    @abstractmethod
+    def generate_images(self, images):
+        pass
+
 
 class PreUpsampling(Framework):
-    def __init__(self, input_res=None, output_res=None, upsample_function=None, method=None):
-        super().__init__(input_res, output_res, upsample_function)
+    def __init__(self, input_res=None, output_res=None, upsample_function=None, method=None, name='framework'):
+        super().__init__(input_res, output_res, upsample_function, name)
 
         self.method = method
 
@@ -68,10 +73,16 @@ class PreUpsampling(Framework):
 
         self.method.train_method(upsampled_features, labels)
 
+    def generate_images(self, images):
+        upsampled_images = self.upsample_function(images, self.output_res)
+
+        return self.method.generate_images(upsampled_images)
+        
+
 
 class ProgressiveUpsampling(Framework):
-    def __init__(self, input_res=None, output_res=None, method=None, upsample_function=None, steps = 1):
-        super().__init__(input_res, output_res, upsample_function)
+    def __init__(self, input_res=None, output_res=None, upsample_function=None, method=None, steps = 1, name='framework'):
+        super().__init__(input_res, output_res, upsample_function, name)
 
         self.methods = [method] * steps
         self.steps = steps
@@ -93,4 +104,13 @@ class ProgressiveUpsampling(Framework):
             upsampled_features = self.upsample_function(features, res)
             downsampled_labels = lanczos(labels, res) # using lanczos because it's a good downsample method
 
-            features = self.method.train_method(upsampled_features, downsampled_labels)
+            features = self.method[i].train_method(upsampled_features, downsampled_labels)
+
+    def generate_images(self, images):
+        for i in range(self.steps):
+            res = self.input_res * np.power(2, i)
+            upsampled_images = self.upsample_function(images, res)
+
+            images = self.method[i].generate_images(upsampled_images)
+
+        return images

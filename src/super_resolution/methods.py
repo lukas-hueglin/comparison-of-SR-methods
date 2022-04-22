@@ -3,7 +3,6 @@
 import tensorflow as tf
 from abc import ABC, abstractmethod
 
-from model import Model
 
 class Method(ABC):
     def __init__(self):
@@ -12,6 +11,10 @@ class Method(ABC):
     @abstractmethod
     def train_method(self, features, labels):
         return labels
+
+    @abstractmethod
+    def generate_images(self, images):
+        return images
 
 
 class AdversarialNetwork(Method):
@@ -46,24 +49,30 @@ class AdversarialNetwork(Method):
 
         return generated_image
 
+    def generate_images(self, images):
+        return self.generator.network(images, training=False)
+
 
 class SingleNetwork(Method):
-    def __init__(self, network = None):
+    def __init__(self, model = None):
         super().__init__()
 
-        self.network = network
+        self.model = model
 
-    def set_network(self, network):
-        self.network = network
+    def set_network(self, model):
+        self.model = model
     
     def train_method(self, features, labels):
         with tf.GradientTape() as tape:
-            generated_image = self.network.network(features, training=True)
+            generated_image = self.model.network(features, training=True)
 
-            loss = self.network.loss_function(labels, generated_image)
+            loss = self.model.loss_function(labels, generated_image)
 
 
-        gradient = tape.gradient(loss, self.network.network.trainable_variables)
-        self.network.optimizer.apply_gradients(zip(gradient, self.network.network.trainable_variables))
+        gradient = tape.gradient(loss, self.model.network.trainable_variables)
+        self.model.optimizer.apply_gradients(zip(gradient, self.model.network.trainable_variables))
 
         return generated_image
+
+    def generate_images(self, images):
+        return self.model.network(images, training=False)
