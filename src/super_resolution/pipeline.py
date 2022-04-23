@@ -4,10 +4,11 @@
 ##
 
 import os
-import cv2
-import matplotlib.pyplot as plt
-import numpy as np
 
+import cv2
+import imageio
+
+import numpy as np
 from tqdm import tqdm
 
 from utils import TColors
@@ -16,20 +17,45 @@ from utils import TColors
 ## helper_functions ##
 
 # This function is called every epoch and saves the predicted images of the network.
-def generate_and_save(path, images, gen_func):
+def generate_and_save(path, epoch,  images, gen_func):
     # generate the output with the gen_func (generate_images() in Method class)
     generated_images = gen_func(images)
 
-    # make a new folder
-    os.makedirs(path, exist_ok=True)
-
     # save each image
     for i in range(len(generated_images)):
-        name = os.path.join(path,  'image_' + str(i) + '.jpg')
+        img_path = os.path.join(path,  'image_' + str(i))
+
+        # make a new folder
+        os.makedirs(img_path, exist_ok=True)
+
+        # make name
+        name = os.path.join(img_path, 'epoch_' + str(epoch) + '.jpg')
         
         # the images have to be converted to BGR and streched to 255
         img = cv2.cvtColor(np.array(generated_images[i])*255, cv2.COLOR_RGB2BGR)
         cv2.imwrite(name, img)
+
+def create_gif(path):
+    # get all directories (all different images)
+    dirs = os.listdir(path)
+
+    for d in dirs:
+        # make new path
+        dir_path = os.path.join(path, d)
+
+        # get all images (epochs)
+        images = os.listdir(dir_path)
+
+        # make file name
+        file_name = os.path.join(dir_path, 'animfile.gif')
+
+        with imageio.get_writer(file_name, mode='I') as writer:
+            # iterate all images
+            for i in images:
+                image_path = os.path.join(dir_path, i)
+                image = imageio.imread(image_path)
+                writer.append_data(image)
+
 
 
 ## Pipeline class ##
@@ -98,13 +124,17 @@ class Pipeline():
 
                 # Generate sample image
                 if self.path != None and self.sample_images != None:
-                    image_path = os.path.join(self.path, 'progress_images', 'epoch_' + str(epoch))
-                    generate_and_save(image_path, self.sample_images, self.framework.generate_images)
+                    image_path = os.path.join(self.path, 'progress_images')
+                    generate_and_save(image_path, epoch, self.sample_images, self.framework.generate_images)
 
             # plot stats
             plot_path = os.path.join(self.path, 'statistics')
             name = self.framework.name
             self.framework.method.save_stats(plot_path, self.epochs, name)
+
+            # create gif
+            image_path = image_path = os.path.join(self.path, 'progress_images')
+            create_gif(image_path)
 
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
