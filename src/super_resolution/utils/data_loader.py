@@ -125,8 +125,6 @@ class DatasetLoader():
             # batch the training_dataset
             training_dataset = training_dataset.batch(self.batch_size)
 
-            print(training_dataset.element_spec, validation_dataset.element_spec)
-
             return training_dataset, validation_dataset
 
 

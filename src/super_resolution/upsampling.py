@@ -95,7 +95,7 @@ class PreUpsampling(Framework):
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        self.method.train_method(upsampled_features, labels)
+        return self.method.train_method(upsampled_features, labels)
 
     # generates images the same way it is trained
     def generate_images(self, images):
@@ -151,6 +151,8 @@ class ProgressiveUpsampling(Framework):
 
             # train the network
             features = self.method[i].train_method(upsampled_features, downsampled_labels)
+
+        return features
 
     # generates images the same way it is trained
     def generate_images(self, images):

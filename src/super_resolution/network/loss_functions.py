@@ -19,6 +19,6 @@ def disc_loss():
     pass
 
 # This loss function is packs the default tf MSE into a own function. 
+mse = tf.keras.losses.MeanSquaredError()
 def MSE_loss(y_true, y_pred):
-    mse = tf.keras.losses.MeanSquaredError()
     return mse(y_true, y_pred)

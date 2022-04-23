@@ -8,6 +8,7 @@ import tensorflow as tf
 from model import Model
 from network import architectures as arch
 from network import loss_functions as lf
+from utils import statistics as stats
 
 import upsampling, methods
 
@@ -95,7 +96,7 @@ def build_SRDemo():
         output_res=OUTPUT_RES,
         upsample_function=upsampling.bicubic,
         method=method,
-        name='demo'
+        name='SRDemo'
     )
 
     return framework

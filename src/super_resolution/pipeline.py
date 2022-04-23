@@ -5,6 +5,7 @@
 
 import os
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
 from tqdm import tqdm
@@ -90,12 +91,20 @@ class Pipeline():
                 # iterate over each batch
                 for batch in tqdm(self.training_data):
                     features, labels = batch
-                    self.framework.train_step(features, labels)
+                    generated_images, loss = self.framework.train_step(features, labels)
+
+                    # add loss to StatsRecorder
+                    self.framework.method.update_stats_recorder(loss)
 
                 # Generate sample image
                 if self.path != None and self.sample_images != None:
                     image_path = os.path.join(self.path, 'progress_images', 'epoch_' + str(epoch))
                     generate_and_save(image_path, self.sample_images, self.framework.generate_images)
+
+            # plot stats
+            plot_path = os.path.join(self.path, 'statistics')
+            name = self.framework.name
+            self.framework.method.save_stats(plot_path, self.epochs, name)
 
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
