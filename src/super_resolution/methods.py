@@ -38,6 +38,10 @@ class Method(ABC):
     def save_stats(self, path, epochs, name):
         pass
 
+    @abstractmethod
+    def get_info(self):
+        pass
+
 
 # The AdversarialNetwork class describes a method with a generator and a discriminator.
 class AdversarialNetwork(Method):
@@ -124,7 +128,30 @@ class AdversarialNetwork(Method):
         # save the plot
         os.makedirs(path, exist_ok=True)
         fig.savefig(path + '\\loss.png', dpi=300, format='png')
-        
+
+    # This function is used to create the ABOUT.md file and
+    # returns a string with all the information in 1 - Method
+    def get_info(self):
+        # helper function for getting the model info
+        def get_model_text(model):
+            net, lf, lr = model.get_info()
+            t = '>Network: *' + net + '* </br>\n'
+            t += '>Loss Function: *' + lf + '* </br>\n'
+            t += '>Learning Rate: *' + str(lr) + '* </br>\n\n'
+            return t
+
+        # add base text
+        text = '![](https://drive.google.com/uc?export=view&id=1kOSUF1jnPmSTR27yNlODdlUa6nARYGmy)\n\n'
+        text += '## 1 - Method\n\n'
+        text += 'Method: *'
+        # add class name
+        text += __class__.__name__+'*\n\n'
+        # add generator and discriminator
+        text += 'Generator:\n' + get_model_text(self.generator)
+        text += 'Discriminator:\n' + get_model_text(self.discriminator)
+
+        return text
+
 
 # The SingleNetwork class describes a method with just one model.
 class SingleNetwork(Method):
@@ -187,3 +214,25 @@ class SingleNetwork(Method):
         # save the plot
         os.makedirs(path, exist_ok=True)
         fig.savefig(path + '\\loss.png', dpi=300, format='png')
+
+    # This function is used to create the ABOUT.md file and
+    # returns a string with all the information in 1 - Method
+    def get_info(self):
+        # helper function for getting the model info
+        def get_model_text(model):
+            net, lf, lr = model.get_info()
+            t = '>Network: *' + net + '* </br>\n'
+            t += '>Loss Function: *' + lf + '* </br>\n'
+            t += '>Learning Rate: *' + str(lr) + '* </br>\n\n'
+            return t
+
+        # add base text
+        text = '![](https://drive.google.com/uc?export=view&id=1kOSUF1jnPmSTR27yNlODdlUa6nARYGmy)\n\n'
+        text += '## 1 - Method\n\n'
+        text += 'Method: *'
+        # add class name
+        text += __class__.__name__+'*\n\n'
+        # add model
+        text += 'Model:\n' + get_model_text(self.model)
+        
+        return text

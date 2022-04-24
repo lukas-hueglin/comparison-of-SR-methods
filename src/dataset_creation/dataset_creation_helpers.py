@@ -1,5 +1,4 @@
 ### dataset_creation_helpers.py ###
-from ast import comprehension
 import pandas as pd
 import numpy as np
 import os
@@ -64,7 +63,6 @@ def save_images(path, imgs, sizes, batch_index, interpolation):
                     hf.create_dataset(name, data=cropped_imgs[i], dtype=int, compression='gzip')
                 except ValueError:
                     print(TColors.WARNING + name + ' already exists!')
-
 
 
 class DatasetCreator:
@@ -139,7 +137,6 @@ class DatasetCreator:
 
         print('Estimated dataset size: ' + TColors.BOLD + str(np.round(space * self.dataset_size, 2)) + TColors.ENDC + ' GB')
 
-
     # returns the space used by the dataset
     # (it is really slow and can be improved, maybee with: https://www.geeksforgeeks.org/how-to-get-size-of-folder-using-python/)
     def get_used_space(self):
@@ -185,9 +182,7 @@ class DatasetCreator:
 
             # save all images
             save_images(data_path, imgs, self.sizes, batch, self.interpolation)
-
-            
-
+      
     # creates a README.md file with information about the locally downloaded dataset
     def make_README(self, urls, batch_size=-1):
         # create content in markdown

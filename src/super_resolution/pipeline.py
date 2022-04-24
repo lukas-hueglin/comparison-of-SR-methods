@@ -4,6 +4,7 @@
 ##
 
 import os
+import datetime
 
 import cv2
 import imageio
@@ -57,7 +58,6 @@ def create_gif(path):
                 writer.append_data(image)
 
 
-
 ## Pipeline class ##
 class Pipeline():
     def __init__(self, framework = None, epochs = 10, training_data = None, validation_data = None, sample_images = None):
@@ -103,6 +103,38 @@ class Pipeline():
     def set_sample_images(self, sample_images):
         self.sample_images = sample_images
 
+    # This function is used to create the ABOUT.md file
+    def create_ABOUT_file(self):
+        # helper function for adding a image
+        def add_image(img_name):
+            return '![' + img_name + '](./progress_images/' + img_name + '/animfile.gif)\n'
+
+        # get info from framework
+        text = self.framework.get_info()
+        # add 3 - Training parameters
+        text += '## 3 - Training parameters\n\n'
+        text += 'Date: ' + str(datetime.date.today()) + '\n\n'
+        text += 'Epochs: ' + str(self.epochs) + '</br>\n'
+        text += 'Batch size: ...' + '</br>\n'
+        text += 'Buffer size: ...' + '\n\n'
+        # add 4 - datasets (in future)
+        text += '## 4 - Datasets\n\n'
+        text += 'Dataset: ... </br>\n'
+        text += 'Training - Validation ratio: ...\n\n'
+        # add 5 - Sample images
+        text += '## 6 - Sample Images\n\n'
+        text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
+
+        image_path = os.path.join(self.path, 'progress_images')
+        image_dirs = os.listdir(image_path)
+        for image in image_dirs:
+            text += add_image(image)
+
+        # write file
+        file = open(self.path+'\\ABOUT.md', 'a')
+        file.write(text)
+        file.close()
+
 
     # The main train function. This function gets called by the user.
     def train(self):
@@ -135,6 +167,9 @@ class Pipeline():
             # create gif
             image_path = image_path = os.path.join(self.path, 'progress_images')
             create_gif(image_path)
+
+            # make ABOUT.md file
+            self.create_ABOUT_file()
 
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)

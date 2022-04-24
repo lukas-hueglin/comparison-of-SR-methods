@@ -9,7 +9,7 @@ from utils import StatsRecorder
 
 class Model():
     def __init__(self, network = None, loss_function = None, optimizer = None):
-        self.network = network
+        self.network, self.network_name = network
         self.loss_function = loss_function
         self.optimizer = optimizer
 
@@ -18,7 +18,7 @@ class Model():
 
     ## setter functions for the class variables
     def set_network(self, network):
-        self.network = network
+        self.network, self.network_name = network
 
     def set_loss_function(self, loss_function):
         self.loss_function = loss_function
@@ -28,3 +28,14 @@ class Model():
 
     def set_metric(self, metric):
         self.stats_recoder.metric_function = metric
+
+    # This function is used to create the ABOUT.md file it returns the network name
+    def get_info(self):
+        # get the name of the loss function
+        lf_name = self.loss_function.__name__
+        lf_name = lf_name.replace('_loss', '')
+
+        # get the learning rate
+        lr = self.optimizer.lr.numpy()
+
+        return self.network_name, lf_name, lr

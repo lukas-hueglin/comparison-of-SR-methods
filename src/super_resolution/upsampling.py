@@ -72,6 +72,22 @@ class Framework(ABC):
     def generate_images(self, images):
         pass
 
+    # This function is used to create the ABOUT.md file and
+    # returns a string with all the information in 2 - Framework
+    @abstractmethod
+    def get_info(self, class_name=''):
+        # title
+        text = '# ' + self.name + '\n\n'
+        # get text from method
+        text += self.method.get_info()
+        # add 2 - Framework
+        text += '## 2 - Framework\n\n'
+        text += 'Framework: *' + class_name + '* </br>\n'
+        text += 'Upsample method: *' + self.upsample_function.__name__ + '*\n\n'
+        text += 'Input resolution: ' + str(self.input_res) + '*px* </br>\n'
+        text += 'Output resolution: ' + str(self.output_res) + '*px*\n\n'
+
+        return text
 
 # This class scales the input images
 # up first and passes them aferwards to the network
@@ -103,6 +119,12 @@ class PreUpsampling(Framework):
         upsampled_images = self.upsample_function(images, self.output_res)
 
         return self.method.generate_images(upsampled_images)
+
+    # This function is used to create the ABOUT.md file and
+    # returns a string with all the information in 2 - Framework
+    def get_info(self, class_name=''):
+        class_name = __class__.__name__
+        return super().get_info(class_name)
         
 
 # This class scales the images up progressively. The output image
@@ -167,3 +189,9 @@ class ProgressiveUpsampling(Framework):
             images = self.method[i].generate_images(upsampled_images)
 
         return images
+
+    # This function is used to create the ABOUT.md file and
+    # returns a string with all the information in 2 - Framework
+    def get_info(self, class_name=''):
+        class_name = __class__.__name__
+        return super().get_info(class_name)
