@@ -21,7 +21,8 @@ def main():
         label_lod=3,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
-        dataset_type=DatasetType.SUPERVISED
+        dataset_type=DatasetType.SUPERVISED,
+        dataset_size=1000
     )
 
     # create sample loader
@@ -31,14 +32,13 @@ def main():
     )
 
     # load data
-    training_data, _ = dataset_loader.load_dataset(num_images=1000)
     sample_images = sample_loader.load_samples() 
 
     # create pipeline
     pipeline = Pipeline(
         framework=presets.build_SRDemo(),
-        epochs = EPOCHS,
-        training_data=training_data,
+        epochs=EPOCHS,
+        dataset_loader=dataset_loader,
         
         # if you don't have sample images or don't need it just set it None
         sample_images=sample_images

@@ -41,18 +41,22 @@ def load_images(path, first_image = 0, num_images = -1, silent=False):
                 batches = hf.keys()
 
                 # iterate all batches
-                for b in tqdm(batches):
+                if silent:
+                    it = batches
+                else:
+                    it = tqdm(batches)
+                for b in it:
                     images = hf[b].keys()
 
                     # iterate all images
                     for i in images:
-
                         # check if the image should be appended
                         if image_count >= first_image:
                             imgs.append(np.array(hf[b+'/'+i])/255) # normalize
-                            image_count += 1
-                        if image_count >= num_images-1:
+                        if image_count - first_image >= num_images - 1:
                             raise StopIteration
+                        # add one image
+                        image_count += 1
             except StopIteration:
                 pass
 
@@ -61,7 +65,7 @@ def load_images(path, first_image = 0, num_images = -1, silent=False):
 
 # loads Features and Labels into a tf.Dataset
 class DatasetLoader():
-    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = DatasetType.SUPERVISED, train_ratio = 0.8):
+    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = DatasetType.SUPERVISED, train_ratio = 0.8, dataset_size = -1):
         self.path = path
         self.feature_lod = feature_lod
         self.label_lod = label_lod
@@ -70,8 +74,13 @@ class DatasetLoader():
         self.buffer_size = buffer_size
 
         self.dataset_type = dataset_type
+        
+        if dataset_size < 0:
+            self.dataset_size = self.get_dataset_size()
+        else:
+            self.dataset_size = dataset_size
 
-        self.train_ratio = train_ratio
+        self.train_size = int(self.dataset_size*train_ratio)
 
     ## setter functions for class variables
     def set_path(self, path):
@@ -86,10 +95,6 @@ class DatasetLoader():
     
     def set_buffer_size(self, buffer_size):
         self.buffer_size = buffer_size
-
-    def set_ds_batch_info(self, ds_batch_size, ds_num_batches):
-        self.ds_batch_size = ds_batch_size
-        self.ds_num_batches = ds_num_batches
 
 
     ## dataset loader function
@@ -126,6 +131,51 @@ class DatasetLoader():
             training_dataset = training_dataset.batch(self.batch_size)
 
             return training_dataset, validation_dataset
+
+    # dataset loader function with multiprocessing
+    def load_batch(self, batch, return_dict):
+        if self.path != None:
+            # create the paths for the feature and label .hdf5 files.
+            feature_path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod) + '.hdf5')
+            label_path = os.path.join(self.path, 'data', 'LOD_' + str(self.label_lod) + '.hdf5')
+
+            # set next_image
+            next_image = batch*self.batch_size
+
+            # set image_num
+            if next_image + self.batch_size <= self.train_size:
+                image_num = self.batch_size
+            else:
+                image_num = self.train_size - next_image
+
+            # load the images into numpy arrays
+            features = load_images(feature_path, next_image, image_num, silent=True)
+            labels = load_images(label_path, next_image, image_num, silent=True)
+
+            # shuffle features so a unsupervised dataset is generated
+            if self.dataset_type == DatasetType.UNSUPERVISED:
+                features = np.random.shuffle(features)
+
+            return_dict['features'] = features
+            return_dict['labels'] = labels
+
+    # function which returns the size of the given dataset
+    def get_dataset_size(self):
+        # set lod0 as file
+        file = os.path.join(self.path, 'data', 'LOD_0.hdf5')
+
+        # open .hdf5 file
+        with h5py.File(file, 'r') as hf:
+            # do try-except to stop double loop
+            image_count = 0
+            batches = hf.keys()
+
+            # iterate all batches
+            for b in batches:
+                images = hf[b].keys()
+                image_count += len(images)
+
+        return image_count
 
 
 # loads just one dataset into a tf.tensor

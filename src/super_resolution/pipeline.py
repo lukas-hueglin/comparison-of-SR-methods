@@ -3,6 +3,9 @@
 # is a container for all it needs to train or test out a framework.
 ##
 
+import tensorflow as tf
+import multiprocessing
+
 import os
 import datetime
 
@@ -60,13 +63,12 @@ def create_gif(path):
 
 ## Pipeline class ##
 class Pipeline():
-    def __init__(self, framework = None, epochs = 10, training_data = None, validation_data = None, sample_images = None):
+    def __init__(self, framework = None, epochs = 10, dataset_loader = None, sample_images = None):
         
         self.framework = framework
         self.epochs = epochs
 
-        self.training_data = training_data
-        self.validation_data = validation_data
+        self.dataset_loader = dataset_loader
 
         # Set the path of the framework root folder
         rel_path = os.path.join(os.path.dirname( __file__ ), os.pardir, os.pardir, 'models', self.framework.name)
@@ -139,20 +141,55 @@ class Pipeline():
     # The main train function. This function gets called by the user.
     def train(self):
         # check if everything is specified
-        if self.training_data != None and self.framework != None:
+        if self.dataset_loader != None:
 
             # iterate over each epoch
             for epoch in range(self.epochs):  
                 # print a message
                 print(TColors.HEADER + '\nEpoch ' + str(epoch) + ':\n' +TColors.ENDC)
 
+                # start with multiprocessing
+                # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
+                manager = multiprocessing.Manager()
+                return_dict = manager.dict()
+
+                # predefining features and labels
+                return_dict['features'] = None
+                return_dict['labels'] = None
+
+                loader = multiprocessing.Process(
+                    target = self.dataset_loader.load_batch,
+                    args=(0, return_dict)
+                )
+
+                # get first batch of data
+                loader.start()
+                loader.join()
+
                 # iterate over each batch
-                for batch in tqdm(self.training_data):
-                    features, labels = batch
+                num_batches = int(np.ceil(self.dataset_loader.train_size/self.dataset_loader.batch_size))
+                for batch in tqdm(range(num_batches)):
+                    features, labels = return_dict.values()
+
+                    # convert to tensors
+                    features = tf.convert_to_tensor(features)
+                    labels = tf.convert_to_tensor(labels)
+
+                    # set new loader for next batch
+                    loader = multiprocessing.Process(
+                        target = self.dataset_loader.load_batch,
+                        args=(batch+1, return_dict)
+                    )
+                    loader.start()
+
+                    # train
                     generated_images, loss = self.framework.train_step(features, labels)
 
                     # add loss to StatsRecorder
-                    self.framework.method.update_stats_recorder(loss)
+                    #self.framework.method.update_stats_recorder(loss)
+
+                    # join the loader
+                    loader.join()
 
                 # Generate sample image
                 if self.path != None and self.sample_images != None:
