@@ -8,6 +8,7 @@ import multiprocessing
 
 import os
 import datetime
+import time
 
 import cv2
 import imageio
@@ -150,46 +151,42 @@ class Pipeline():
 
                 # start with multiprocessing
                 # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
-                manager = multiprocessing.Manager()
-                return_dict = manager.dict()
+                feature_queue = multiprocessing.Queue()
+                label_queue = multiprocessing.Queue()
 
-                # predefining features and labels
-                return_dict['features'] = None
-                return_dict['labels'] = None
-
-                loader = multiprocessing.Process(
-                    target = self.dataset_loader.load_batch,
-                    args=(0, return_dict)
+                feature_loader = multiprocessing.Process(
+                    target=self.dataset_loader.load_dataset_mp,
+                    args=(feature_queue, True)
+                )
+                label_loader = multiprocessing.Process(
+                    target=self.dataset_loader.load_dataset_mp,
+                    args=(label_queue, False)
                 )
 
-                # get first batch of data
-                loader.start()
-                loader.join()
+                # start
+                feature_loader.start()
+                label_loader.start()
 
                 # iterate over each batch
                 num_batches = int(np.ceil(self.dataset_loader.train_size/self.dataset_loader.batch_size))
                 for batch in tqdm(range(num_batches)):
-                    features, labels = return_dict.values()
-
-                    # convert to tensors
-                    features = tf.convert_to_tensor(features)
-                    labels = tf.convert_to_tensor(labels)
-
-                    # set new loader for next batch
-                    loader = multiprocessing.Process(
-                        target = self.dataset_loader.load_batch,
-                        args=(batch+1, return_dict)
-                    )
-                    loader.start()
+                    # wait until batch arrives
+                    while True:
+                        if not feature_queue.empty() and not label_queue.empty():
+                            features = tf.convert_to_tensor(feature_queue.get())
+                            labels = tf.convert_to_tensor(label_queue.get())
+                            break
+                        time.sleep(0.05)
 
                     # train
                     generated_images, loss = self.framework.train_step(features, labels)
 
                     # add loss to StatsRecorder
-                    #self.framework.method.update_stats_recorder(loss)
+                    self.framework.method.update_stats_recorder(loss)
 
-                    # join the loader
-                    loader.join()
+                # join the processes
+                feature_loader.join()
+                label_loader.join()
 
                 # Generate sample image
                 if self.path != None and self.sample_images != None:

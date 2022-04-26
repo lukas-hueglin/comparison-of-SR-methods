@@ -8,7 +8,7 @@ import presets
 
 ## global parameters
 EPOCHS = 10
-BATCH_SIZE = 64
+BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
 ## main function
@@ -17,8 +17,8 @@ def main():
     # create dataset loader
     dataset_loader = DatasetLoader(
         path='D:\\Local UNSPLASH Dataset Full',
-        feature_lod=5,
-        label_lod=3,
+        feature_lod=2,
+        label_lod=1,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
         dataset_type=DatasetType.SUPERVISED,
@@ -28,7 +28,7 @@ def main():
     # create sample loader
     sample_loader = SampleLoader(
         path='D:\\UNSPLASH Samples',
-        lod=5
+        lod=2
     )
 
     # load data
