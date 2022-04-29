@@ -7,6 +7,8 @@
 
 import tensorflow as tf
 
+import os
+
 import numpy as np
 from abc import ABC, abstractmethod
 
@@ -61,7 +63,6 @@ class Framework(ABC):
         else:
             print(TColors.WARNING + 'The resolutions are not specified!' + TColors.ENDC)
 
-
     # empty function for a training step
     @abstractmethod
     def train_step(self, feature, label):
@@ -89,6 +90,12 @@ class Framework(ABC):
 
         return text
 
+    @abstractmethod
+    # adds the values to the StatsRecorder
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
+        pass
+
+
 # This class scales the input images
 # up first and passes them aferwards to the network
 class PreUpsampling(Framework):
@@ -102,7 +109,6 @@ class PreUpsampling(Framework):
     def set_method(self, method):
         self.method = method
 
-
     # This is the training step function. The labels
     # get scaled up first and are sent to the network later
     @tf.function
@@ -111,7 +117,9 @@ class PreUpsampling(Framework):
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        return self.method.train_method(upsampled_features, labels)
+        generated_image, loss = self.method.train_method(upsampled_features, labels)
+
+        return generated_image, loss
 
     # generates images the same way it is trained
     def generate_images(self, images):
@@ -125,6 +133,19 @@ class PreUpsampling(Framework):
     def get_info(self, class_name=''):
         class_name = __class__.__name__
         return super().get_info(class_name)
+
+    # adds the values to the StatsRecorder
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
+        self.method.update_stats_recorder(loss=loss, time=time, sys_load=sys_load, metrics=metrics)
+        
+    # plots the stats
+    def plot_and_save_stats(self, path, epochs, name):
+        os.makedirs(path)
+
+        # plot
+        #self.method.plot_loss(path, epochs, name)
+        self.method.plot_time(path, epochs, name)
+        self.method.plot_sys_load(path, epochs, name)
         
 
 # This class scales the images up progressively. The output image
@@ -137,8 +158,8 @@ class ProgressiveUpsampling(Framework):
         self.steps = steps
 
     ## setter functions for the class variables
-    def set_method(self, method):
-        self.methods = [method] * self.steps
+    def set_methods(self, methods):
+        self.methods = methods
 
     def set_steps(self, steps):
         self.steps = steps
@@ -161,6 +182,8 @@ class ProgressiveUpsampling(Framework):
     # get scaled up and sent to the network self.step times.
     @tf.function
     def train_step(self, features, labels):
+        generated_images = []
+        losses = []
         # there are self.steps loops
         for i in range(self.steps):
 
@@ -172,9 +195,16 @@ class ProgressiveUpsampling(Framework):
             downsampled_labels = lanczos(labels, res) # using lanczos because it's a good downsample method
 
             # train the network
-            features = self.method[i].train_method(upsampled_features, downsampled_labels)
+            generated_image, loss = self.method[i].train_method(upsampled_features, downsampled_labels)
 
-        return features
+            # append information for the return value
+            generated_images.append(generated_image)
+            losses.append(loss)
+
+            # pass the generated image back into the feature for the next loop
+            features = generated_image
+
+        return generated_images, losses
 
     # generates images the same way it is trained
     def generate_images(self, images):
@@ -195,3 +225,21 @@ class ProgressiveUpsampling(Framework):
     def get_info(self, class_name=''):
         class_name = __class__.__name__
         return super().get_info(class_name)
+
+    # adds the values to the StatsRecorder
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
+        # add time and sys_load just to the first one
+        self.methods[0].update_stats_recorder(loss=loss[0], time=time, sys_load=sys_load, metrics=metrics[i])
+
+        for i in range(1, self.steps):
+            self.methods[i].update_stats_recorder(loss=loss[i], metrics=metrics[i])
+        
+    # plots the stats
+    def plot_and_save_stats(self, path, epochs, name):
+        os.makedirs(path)
+
+        # plot
+        for method in self.methods:
+            method.plot_loss(path, epochs, name)
+        self.methods[0].plot_time(path, epochs, name)
+        self.methods[0].plot_sys_load(path, epochs, name)

@@ -35,8 +35,26 @@ class Method(ABC):
         pass
 
     @abstractmethod
-    def save_stats(self, path, epochs, name):
+    def plot_loss(self, path, epochs, name):
         pass
+
+    def plot_time(self, path, epochs, name):
+        fig, ax = plt.subplots()
+        fig.suptitle(name)
+
+        self.model.stats_recorder.plot_time(ax, epochs)
+        
+        # save the plot
+        fig.savefig(path + '\\time.png', dpi=300, format='png')
+
+    def plot_sys_load(self, path, epochs, name):
+        fig, ax = plt.subplots()
+        fig.suptitle(name)
+
+        self.model.stats_recorder.plot_sys_load(ax, epochs)
+        
+        # save the plot
+        fig.savefig(path + '\\system_load.png', dpi=300, format='png')
 
     @abstractmethod
     def get_info(self):
@@ -93,40 +111,36 @@ class AdversarialNetwork(Method):
         return self.generator.network(images, training=False)
 
 
-    # adds the loss to the StatsRecorder
-    def update_stats_recorder(self, loss):
+    # adds the values to the StatsRecorder
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
         # unpack loss
         gen_loss, disc_loss = loss
+        gen_metrics, disc_metrics = metrics
 
-        # add loss to StatsRecorder
+        # add loss
         self.generator.stats_recorder.add_loss(gen_loss)
         self.discriminator.stats_recorder.add_loss(disc_loss)
+        # add time (just to the generator)
+        self.generator.stats_recorder.add_time(time)
+        # add system load (just to the generator)
+        self.generator.stats_recorder.add_sys_load(sys_load)
+        # add metrics
+        self.generator.stats_recorder.add_metrics(gen_metrics)
+        self.discriminator.stats_recorder.add_metrics(disc_metrics)
 
     # plots and saves the stats
-    def save_stats(self, path, epochs, name):
+    def plot_loss(self, path, epochs, name):
         fig, (gen, disc) = plt.subplots(2)
+
+        self.generator.stats_recorder.plot_loss(gen, epochs)
+        self.discriminator.stats_recorder.plot_loss(disc, epochs)
+
+        # set titles
         fig.suptitle(name)
-
-        # get y - axis
-        y_gen = self.generator.stats_recorder.tracked_loss
-        y_disc = self.discriminator.stats_recorder.tracked_loss
-
-        # make x - axis
-        x = np.linspace(0, epochs, num=len(y_gen))
-        
-        # set labels
-        gen.set(xlabel='epochs', ylabel='loss')
-        disc.set(xlabel='epochs', ylabel='loss')
-        gen.label_outer()
-        disc.label_outer()
-
-        # plot
-        gen.plot(x, y_gen, linewidth=1)
-        disc.plot(x, y_disc, linewidth=1)
-        plt.show()
+        gen.set_title('Generator')
+        disc.set_title('Discriminator')
         
         # save the plot
-        os.makedirs(path, exist_ok=True)
         fig.savefig(path + '\\loss.png', dpi=300, format='png')
 
     # This function is used to create the ABOUT.md file and
@@ -188,31 +202,25 @@ class SingleNetwork(Method):
         return self.model.network(images, training=False)
 
 
-    # adds the loss to the StatsRecorder
-    def update_stats_recorder(self, loss):
+    # adds the values to the StatsRecorder
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
+        # add loss
         self.model.stats_recorder.add_loss(loss)
-
+        # add time
+        self.model.stats_recorder.add_time(time)
+        # add system load
+        self.model.stats_recorder.add_sys_load(sys_load)
+        # add metrics
+        self.model.stats_recorder.add_metrics(metrics)
+        
     # plots the stats
-    def save_stats(self, path, epochs, name):
+    def plot_loss(self, path, epochs, name):
         fig, ax = plt.subplots()
         fig.suptitle(name)
-        
-        # get y - axis
-        y = self.model.stats_recorder.tracked_loss
 
-        # make x - axis
-        x = np.linspace(0, epochs, num=len(y))
-        
-        # set labels
-        ax.set(xlabel='epochs', ylabel='loss')
-        ax.label_outer()
-
-        # plot
-        ax.plot(x, y, linewidth=1)
-        plt.show()
+        self.model.stats_recorder.plot_loss(ax, epochs)
         
         # save the plot
-        os.makedirs(path, exist_ok=True)
         fig.savefig(path + '\\loss.png', dpi=300, format='png')
 
     # This function is used to create the ABOUT.md file and

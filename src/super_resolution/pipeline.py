@@ -3,11 +3,18 @@
 # is a container for all it needs to train or test out a framework.
 ##
 
+import tensorflow as tf
+import multiprocessing
+
 import os
 import datetime
+import time
 
 import cv2
 import imageio
+
+import psutil
+import GPUtil
 
 import numpy as np
 from tqdm import tqdm
@@ -36,6 +43,7 @@ def generate_and_save(path, epoch,  images, gen_func):
         img = cv2.cvtColor(np.array(generated_images[i])*255, cv2.COLOR_RGB2BGR)
         cv2.imwrite(name, img)
 
+# Function which creates a animated gif from all progress images
 def create_gif(path):
     # get all directories (all different images)
     dirs = os.listdir(path)
@@ -57,16 +65,14 @@ def create_gif(path):
                 image = imageio.imread(image_path)
                 writer.append_data(image)
 
-
 ## Pipeline class ##
 class Pipeline():
-    def __init__(self, framework = None, epochs = 10, training_data = None, validation_data = None, sample_images = None):
+    def __init__(self, framework = None, epochs = 10, dataset_loader = None, sample_images = None):
         
         self.framework = framework
         self.epochs = epochs
 
-        self.training_data = training_data
-        self.validation_data = validation_data
+        self.dataset_loader = dataset_loader
 
         # Set the path of the framework root folder
         rel_path = os.path.join(os.path.dirname( __file__ ), os.pardir, os.pardir, 'models', self.framework.name)
@@ -105,10 +111,6 @@ class Pipeline():
 
     # This function is used to create the ABOUT.md file
     def create_ABOUT_file(self):
-        # helper function for adding a image
-        def add_image(img_name):
-            return '![' + img_name + '](./progress_images/' + img_name + '/animfile.gif)\n'
-
         # get info from framework
         text = self.framework.get_info()
         # add 3 - Training parameters
@@ -128,7 +130,7 @@ class Pipeline():
         image_path = os.path.join(self.path, 'progress_images')
         image_dirs = os.listdir(image_path)
         for image in image_dirs:
-            text += add_image(image)
+            text += '![' + image + '](./progress_images/' + image + '/animfile.gif)\n'
 
         # write file
         file = open(self.path+'\\ABOUT.md', 'a')
@@ -139,20 +141,91 @@ class Pipeline():
     # The main train function. This function gets called by the user.
     def train(self):
         # check if everything is specified
-        if self.training_data != None and self.framework != None:
+        if self.dataset_loader != None:
 
             # iterate over each epoch
             for epoch in range(self.epochs):  
                 # print a message
                 print(TColors.HEADER + '\nEpoch ' + str(epoch) + ':\n' +TColors.ENDC)
 
+                # start with multiprocessing
+                # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
+                feature_queue = multiprocessing.Queue()
+                label_queue = multiprocessing.Queue()
+
+                feature_loader = multiprocessing.Process(
+                    target=self.dataset_loader.load_dataset_mp,
+                    args=(feature_queue, True)
+                )
+                label_loader = multiprocessing.Process(
+                    target=self.dataset_loader.load_dataset_mp,
+                    args=(label_queue, False)
+                )
+
+                # start
+                f_start_timer = time.perf_counter()
+                l_start_timer = time.perf_counter()
+
+                feature_loader.start()
+                label_loader.start()
+
                 # iterate over each batch
-                for batch in tqdm(self.training_data):
-                    features, labels = batch
+                num_batches = int(np.ceil(self.dataset_loader.train_size/self.dataset_loader.batch_size))
+                for batch in tqdm(range(num_batches)):
+                    # wait until batch arrives
+                    feature_is_loaded = False
+                    label_is_loaded = False
+                    while True:
+                        # check if features are ready
+                        if not feature_queue.empty():
+                            if not feature_is_loaded:
+                                # add load time to stats recorder
+                                now = time.perf_counter()
+                                self.framework.update_stats_recorder(time=(now-f_start_timer, None, None))
+                                f_start_timer = now
+                            feature_is_loaded = True
+
+                        # check if labels are ready
+                        if not label_queue.empty():
+                            if not label_is_loaded:
+                                # add load time to stats recorder
+                                now = time.perf_counter()
+                                self.framework.update_stats_recorder(time=(None, now-l_start_timer, None))
+                                l_start_timer = now
+                            label_is_loaded = True
+
+                        if feature_is_loaded and label_is_loaded:
+                            # load the data into tensors
+                            features = tf.convert_to_tensor(feature_queue.get())
+                            labels = tf.convert_to_tensor(label_queue.get())
+                            break
+                        time.sleep(0.01)
+
+                    # train
+                    train_start_timer = time.perf_counter()
                     generated_images, loss = self.framework.train_step(features, labels)
 
-                    # add loss to StatsRecorder
-                    self.framework.method.update_stats_recorder(loss)
+                    # add train time to stats recorder
+                    now = time.perf_counter()
+                    self.framework.update_stats_recorder(time=(None, None, now-train_start_timer))
+
+                    # generate sys_load
+                    cpu_load = psutil.cpu_percent(interval=None, percpu=False)
+                    ram_load = psutil.virtual_memory().percent
+                    gpu_load = []
+                    gpus = GPUtil.getGPUs()
+                    for gpu in gpus:
+                        gpu_load.append(gpu.load * 100)
+
+                    # add values to stats recorder
+                    self.framework.update_stats_recorder(
+                        loss=loss,
+                        sys_load=(cpu_load, ram_load, gpu_load)
+                    )
+
+                # join the processes
+                feature_loader.join()
+                label_loader.join()
 
                 # Generate sample image
                 if self.path != None and self.sample_images != None:
@@ -162,7 +235,7 @@ class Pipeline():
             # plot stats
             plot_path = os.path.join(self.path, 'statistics')
             name = self.framework.name
-            self.framework.method.save_stats(plot_path, self.epochs, name)
+            self.framework.plot_and_save_stats(plot_path, self.epochs, name)
 
             # create gif
             image_path = image_path = os.path.join(self.path, 'progress_images')

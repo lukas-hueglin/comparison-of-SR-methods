@@ -77,12 +77,12 @@ def build_SRResNet():
 
 # This function builds just a test framework
 def build_SRDemo():
-    INPUT_RES = 32
-    OUTPUT_RES = 128
+    INPUT_RES = 256
+    OUTPUT_RES = 512
 
     #builds the model
     model = Model(
-        network=arch.make_Demo(),
+        network=arch.make_Demo(OUTPUT_RES),
         loss_function=lf.MSE_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )

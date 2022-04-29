@@ -20,6 +20,8 @@ setup(
         'requests==2.27.1',
         'tensorflow==2.8.0',
         'h5py==3.6.0',
-        'imageio==2.17.0'
+        'imageio==2.17.0',
+        'GPUtil==1.4.0',
+        'psutil==5.9.0'
     ]
 )
