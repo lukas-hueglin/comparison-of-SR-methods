@@ -1,5 +1,7 @@
 ### main.py ###
 
+import tensorflow as tf
+
 from utils import DatasetLoader, SampleLoader, DatasetType
 from pipeline import Pipeline
 
@@ -51,4 +53,6 @@ def main():
 
 ## main function call ##
 if __name__ == '__main__':
+    GPUs = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(GPUs[0], True)
     main()

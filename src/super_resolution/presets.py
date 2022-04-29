@@ -82,7 +82,7 @@ def build_SRDemo():
 
     #builds the model
     model = Model(
-        network=arch.make_Demo(),
+        network=arch.make_Demo(OUTPUT_RES),
         loss_function=lf.MSE_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
