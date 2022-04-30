@@ -57,6 +57,10 @@ class Method(ABC):
         fig.savefig(path + '\\system_load.png', dpi=300, format='png')
 
     @abstractmethod
+    def plot_metrics(self, path, epochs, name):
+        pass
+
+    @abstractmethod
     def get_info(self):
         pass
 
@@ -115,7 +119,6 @@ class AdversarialNetwork(Method):
     def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
         # unpack loss
         gen_loss, disc_loss = loss
-        gen_metrics, disc_metrics = metrics
 
         # add loss
         self.generator.stats_recorder.add_loss(gen_loss)
@@ -125,10 +128,9 @@ class AdversarialNetwork(Method):
         # add system load (just to the generator)
         self.generator.stats_recorder.add_sys_load(sys_load)
         # add metrics
-        self.generator.stats_recorder.add_metrics(gen_metrics)
-        self.discriminator.stats_recorder.add_metrics(disc_metrics)
+        self.generator.stats_recorder.add_metrics(metrics)
 
-    # plots and saves the stats
+    # plots the loss
     def plot_loss(self, path, epochs, name):
         fig, (gen, disc) = plt.subplots(2)
 
@@ -137,11 +139,21 @@ class AdversarialNetwork(Method):
 
         # set titles
         fig.suptitle(name)
-        gen.set_title('Generator')
-        disc.set_title('Discriminator')
+        gen.title.set_text('Generator')
+        disc.title.set_text('Discriminator')
         
         # save the plot
         fig.savefig(path + '\\loss.png', dpi=300, format='png')
+
+    # plots the metrics
+    def plot_metrics(self, path, epochs, name):
+        fig, axs = plt.subplots(len(self.generator.stats_recorder.metric_functions))
+        fig.suptitle(name)
+
+        self.generator.stats_recorder.plot_metrics(axs, epochs)
+        
+        # save the plot
+        fig.savefig(path + '\\metrics.png', dpi=300, format='png')
 
     # This function is used to create the ABOUT.md file and
     # returns a string with all the information in 1 - Method
@@ -213,7 +225,7 @@ class SingleNetwork(Method):
         # add metrics
         self.model.stats_recorder.add_metrics(metrics)
         
-    # plots the stats
+    # plots the loss
     def plot_loss(self, path, epochs, name):
         fig, ax = plt.subplots()
         fig.suptitle(name)
@@ -222,6 +234,16 @@ class SingleNetwork(Method):
         
         # save the plot
         fig.savefig(path + '\\loss.png', dpi=300, format='png')
+
+    # plots the metrics
+    def plot_metrics(self, path, epochs, name):
+        fig, axs = plt.subplots(len(self.model.stats_recorder.metric_functions))
+        fig.suptitle(name)
+
+        self.model.stats_recorder.plot_metrics(axs, epochs)
+        
+        # save the plot
+        fig.savefig(path + '\\metrics.png', dpi=300, format='png')
 
     # This function is used to create the ABOUT.md file and
     # returns a string with all the information in 1 - Method

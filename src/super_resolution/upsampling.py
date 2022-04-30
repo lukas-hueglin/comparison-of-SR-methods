@@ -143,9 +143,10 @@ class PreUpsampling(Framework):
         os.makedirs(path)
 
         # plot
-        #self.method.plot_loss(path, epochs, name)
+        self.method.plot_loss(path, epochs, name)
         self.method.plot_time(path, epochs, name)
         self.method.plot_sys_load(path, epochs, name)
+        self.method.plot_metrics(path, epochs, name)
         
 
 # This class scales the images up progressively. The output image
@@ -229,10 +230,10 @@ class ProgressiveUpsampling(Framework):
     # adds the values to the StatsRecorder
     def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
         # add time and sys_load just to the first one
-        self.methods[0].update_stats_recorder(loss=loss[0], time=time, sys_load=sys_load, metrics=metrics[i])
+        self.methods[0].update_stats_recorder(loss=loss[0], time=time, sys_load=sys_load, metrics=metrics)
 
         for i in range(1, self.steps):
-            self.methods[i].update_stats_recorder(loss=loss[i], metrics=metrics[i])
+            self.methods[i].update_stats_recorder(loss=loss[i])
         
     # plots the stats
     def plot_and_save_stats(self, path, epochs, name):
@@ -243,3 +244,4 @@ class ProgressiveUpsampling(Framework):
             method.plot_loss(path, epochs, name)
         self.methods[0].plot_time(path, epochs, name)
         self.methods[0].plot_sys_load(path, epochs, name)
+        self.methods[0].plot_metrics(path, epochs, name)

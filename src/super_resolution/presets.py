@@ -3,6 +3,7 @@
 # the functions in the pruject with a build_ prefix returns a framework
 ##
 
+from cv2 import PSNR
 import tensorflow as tf
 
 from model import Model
@@ -77,14 +78,15 @@ def build_SRResNet():
 
 # This function builds just a test framework
 def build_SRDemo():
-    INPUT_RES = 256
-    OUTPUT_RES = 512
+    INPUT_RES = 32
+    OUTPUT_RES = 128
 
     #builds the model
     model = Model(
         network=arch.make_Demo(OUTPUT_RES),
         loss_function=lf.MSE_loss,
-        optimizer=tf.keras.optimizers.Adam(1e-4)
+        optimizer=tf.keras.optimizers.Adam(1e-4),
+        metric_functions=[stats.PSNR_metric, stats.SSIM_metric]
     )
 
     # builds the method

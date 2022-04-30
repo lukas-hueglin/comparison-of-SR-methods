@@ -220,7 +220,8 @@ class Pipeline():
                     # add values to stats recorder
                     self.framework.update_stats_recorder(
                         loss=loss,
-                        sys_load=(cpu_load, ram_load, gpu_load)
+                        sys_load=(cpu_load, ram_load, gpu_load),
+                        metrics=(generated_images, labels)
                     )
 
                 # join the processes

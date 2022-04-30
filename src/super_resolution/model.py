@@ -8,12 +8,12 @@
 from utils import StatsRecorder
 
 class Model():
-    def __init__(self, network = None, loss_function = None, optimizer = None):
+    def __init__(self, network = None, loss_function = None, optimizer = None, metric_functions=[]):
         self.network, self.network_name = network
         self.loss_function = loss_function
         self.optimizer = optimizer
 
-        self.stats_recorder = StatsRecorder()
+        self.stats_recorder = StatsRecorder(metric_functions)
 
 
     ## setter functions for the class variables
