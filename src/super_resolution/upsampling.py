@@ -8,6 +8,7 @@
 import tensorflow as tf
 
 import os
+import dill
 
 import numpy as np
 from abc import ABC, abstractmethod
@@ -95,6 +96,23 @@ class Framework(ABC):
     def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
         pass
 
+    @abstractmethod
+    def save_variables(self):
+        return {
+            'input_res': self.input_res,
+            'output_res': self.output_res,
+            'upsample_function': self.upsample_function,
+            'name': self.name
+        }
+
+    @abstractmethod
+    def load_variables(self, variables):
+        self.input_res = variables['input_res']
+        self.output_res = variables['output_res']
+        self.upsample_function = variables['upsample_function']
+        self.name = variables['name']
+        pass
+
 
 # This class scales the input images
 # up first and passes them aferwards to the network
@@ -140,13 +158,25 @@ class PreUpsampling(Framework):
         
     # plots the stats
     def plot_and_save_stats(self, path, epochs, name):
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
 
         # plot
         self.method.plot_loss(path, epochs, name)
         self.method.plot_time(path, epochs, name)
         self.method.plot_sys_load(path, epochs, name)
         self.method.plot_metrics(path, epochs, name)
+
+    def save_variables(self):
+        return super().save_variables() | {
+            'class': self.__class__,
+            'method': self.method.save_variables()
+        }
+
+    def load_variables(self, variables):
+        super().load_variables(variables)
+
+        self.method = variables['method']['class']()
+        self.method.load_variables(variables['method'])
         
 
 # This class scales the images up progressively. The output image
@@ -237,7 +267,7 @@ class ProgressiveUpsampling(Framework):
         
     # plots the stats
     def plot_and_save_stats(self, path, epochs, name):
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
 
         # plot
         for method in self.methods:
@@ -245,3 +275,26 @@ class ProgressiveUpsampling(Framework):
         self.methods[0].plot_time(path, epochs, name)
         self.methods[0].plot_sys_load(path, epochs, name)
         self.methods[0].plot_metrics(path, epochs, name)
+
+    def save_variables(self):
+        methods = {}
+        for i in range(len(self.methods)):
+            methods = methods | {'method_'+str(i): self.methods[i].save_variables()}
+
+        dict = {
+            'class': self.__class__,
+            'methods': methods,
+            'steps': self.steps
+        }
+
+        return dict | super().save_variables()
+
+    def load_variables(self, variables):
+        super().load_variables(variables)
+
+        self.stept = variables['steps']
+
+        for m in variables['methods']:
+            method = m['class']()
+            method.load_variables(m)
+            self.methods.append(method)

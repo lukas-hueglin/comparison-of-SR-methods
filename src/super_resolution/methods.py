@@ -9,11 +9,10 @@
 
 import tensorflow as tf
 
-import os
-import numpy as np
 import matplotlib.pyplot as plt
-
 from abc import ABC, abstractmethod
+
+from model import Model
 
 
 # Abstract Method class. It is practically empty and just
@@ -62,6 +61,14 @@ class Method(ABC):
 
     @abstractmethod
     def get_info(self):
+        pass
+
+    @abstractmethod
+    def save_variables(self):
+        pass
+
+    @abstractmethod
+    def load_variables(self, variables):
         pass
 
 
@@ -178,6 +185,19 @@ class AdversarialNetwork(Method):
 
         return text
 
+    def save_variables(self):
+        return {
+            'class': self.__class__,
+            'generator': self.generator.save_variables(),
+            'discriminator': self.discriminator.save_variables(),
+        }
+
+    def load_variables(self, variables):
+        self.generator = Model()
+        self.generator.load_variables(variables['generator'])
+        self.discriminator = Model()
+        self.discriminator.load_variables(variables['discriminator'])
+
 
 # The SingleNetwork class describes a method with just one model.
 class SingleNetwork(Method):
@@ -266,3 +286,13 @@ class SingleNetwork(Method):
         text += 'Model:\n' + get_model_text(self.model)
         
         return text
+
+    def save_variables(self):
+        return {
+            'class': self.__class__,
+            'model': self.model.save_variables(),
+        }
+
+    def load_variables(self, variables):
+        self.model = Model()
+        self.model.load_variables(variables['model'])

@@ -10,6 +10,8 @@ import os
 import datetime
 import time
 
+import dill
+
 import cv2
 import imageio
 
@@ -37,7 +39,7 @@ def generate_and_save(path, epoch,  images, gen_func):
         os.makedirs(img_path, exist_ok=True)
 
         # make name
-        name = os.path.join(img_path, 'epoch_' + str(epoch) + '.jpg')
+        name = os.path.join(img_path, 'epoch_' + f'{epoch:03d}' + '.jpg')
         
         # the images have to be converted to BGR and streched to 255
         img = cv2.cvtColor(np.array(generated_images[i])*255, cv2.COLOR_RGB2BGR)
@@ -61,16 +63,18 @@ def create_gif(path):
         with imageio.get_writer(file_name, mode='I') as writer:
             # iterate all images
             for i in images:
-                image_path = os.path.join(dir_path, i)
-                image = imageio.imread(image_path)
-                writer.append_data(image)
+                if i.endswith(".jpg"):
+                    image_path = os.path.join(dir_path, i)
+                    image = imageio.imread(image_path)
+                    writer.append_data(image)
 
 ## Pipeline class ##
 class Pipeline():
-    def __init__(self, framework = None, epochs = 10, dataset_loader = None, sample_images = None):
+    def __init__(self, framework = None, epochs = 10, epoch_start=0, dataset_loader = None, path=None,  sample_images = None):
         
         self.framework = framework
         self.epochs = epochs
+        self.epoch_start = epoch_start
 
         self.dataset_loader = dataset_loader
 
@@ -80,13 +84,16 @@ class Pipeline():
         index = 1
 
         # check if the path is already used and count up
-        self.path = raw_path + '_v.' + f"{index:02d}"
-        while os.path.exists(self.path):
-            self.path = raw_path + '_v.' f"{index:02d}"
-            index += 1
+        if path is None:
+            self.path = raw_path + '_v.' + f"{index:02d}"
+            while os.path.exists(self.path):
+                self.path = raw_path + '_v.' f"{index:02d}"
+                index += 1
 
-        # create this folder
-        os.makedirs(self.path)
+            # create this folder
+            os.makedirs(self.path, exist_ok=True)
+        else:
+            self.path = path
 
         self.sample_images = sample_images
 
@@ -108,6 +115,7 @@ class Pipeline():
 
     def set_sample_images(self, sample_images):
         self.sample_images = sample_images
+
 
     # This function is used to create the ABOUT.md file
     def create_ABOUT_file(self):
@@ -144,7 +152,7 @@ class Pipeline():
         if self.dataset_loader != None:
 
             # iterate over each epoch
-            for epoch in range(self.epochs):  
+            for epoch in range(self.epoch_start, self.epochs+self.epoch_start):  
                 # print a message
                 print(TColors.HEADER + '\nEpoch ' + str(epoch) + ':\n' +TColors.ENDC)
 
@@ -236,7 +244,7 @@ class Pipeline():
             # plot stats
             plot_path = os.path.join(self.path, 'statistics')
             name = self.framework.name
-            self.framework.plot_and_save_stats(plot_path, self.epochs, name)
+            self.framework.plot_and_save_stats(plot_path, self.epochs + self.epoch_start, name)
 
             # create gif
             image_path = image_path = os.path.join(self.path, 'progress_images')
@@ -245,5 +253,26 @@ class Pipeline():
             # make ABOUT.md file
             self.create_ABOUT_file()
 
+            # save framework
+            self.serialize()
+
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
+
+    def serialize(self):
+        variables = self.framework.save_variables()
+
+        ckpt_path = os.path.join(self.path, 'checkpoints')
+        os.makedirs(ckpt_path, exist_ok=True)
+
+        file_path = os.path.join(ckpt_path, 'saved.ckpt')
+        with open(file_path, 'wb') as file:
+            dill.dump(variables, file)
+
+    def deserialize(self):
+        file_path = os.path.join(self.path,'checkpoints', 'saved.ckpt')
+        with open(file_path, 'rb') as file:
+            variables = dill.load(file)
+
+        self.framework = variables['class']()
+        self.framework.load_variables(variables)

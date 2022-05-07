@@ -22,6 +22,8 @@ setup(
         'h5py==3.6.0',
         'imageio==2.17.0',
         'GPUtil==1.4.0',
-        'psutil==5.9.0'
+        'psutil==5.9.0',
+        'dill==0.3.4',
+        'joblib==1.1.0'
     ]
 )

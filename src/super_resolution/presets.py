@@ -3,7 +3,6 @@
 # the functions in the pruject with a build_ prefix returns a framework
 ##
 
-from cv2 import PSNR
 import tensorflow as tf
 
 from model import Model
@@ -20,14 +19,16 @@ def build_SRGAN():
 
     # build generator
     generator = Model(
-        network=arch.make_SRResNet(),
+        build_function=arch.make_SRResNet,
+        resolution=OUTPUT_RES,
         loss_function=lf.SRGAN_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
     # build discriminator
     discriminator = Model(
-        network=arch.make_SRGAN_disc(),
+        build_function=arch.make_SRGAN_disc,
+        resolution=OUTPUT_RES,
         loss_function=lf.disc_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
@@ -56,7 +57,8 @@ def build_SRResNet():
 
     # build the model
     model = Model(
-        network=arch.make_SRResNet(),
+        build_function=arch.make_SRResNet,
+        resolution=OUTPUT_RES,
         loss_function=lf.SRGAN_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
@@ -83,7 +85,8 @@ def build_SRDemo():
 
     #builds the model
     model = Model(
-        network=arch.make_Demo(OUTPUT_RES),
+        build_function=arch.make_Demo,
+        resolution=OUTPUT_RES,
         loss_function=lf.MSE_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4),
         metric_functions=[stats.PSNR_metric, stats.SSIM_metric]

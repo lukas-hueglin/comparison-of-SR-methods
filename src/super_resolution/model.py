@@ -8,8 +8,14 @@
 from utils import StatsRecorder
 
 class Model():
-    def __init__(self, network = None, loss_function = None, optimizer = None, metric_functions=[]):
-        self.network, self.network_name = network
+    def __init__(self, build_function=None, resolution=None, loss_function = None, optimizer = None, metric_functions=[]):
+        super().__init__()
+        self.resolution = resolution
+
+        if build_function is not None:
+            self.network = build_function(self.resolution)
+        self.build_function = build_function
+
         self.loss_function = loss_function
         self.optimizer = optimizer
 
@@ -17,8 +23,15 @@ class Model():
 
 
     ## setter functions for the class variables
-    def set_network(self, network):
-        self.network, self.network_name = network
+    def set_network(self, build_function):
+        self.network = build_function(self.resolution)
+        self.build_function = build_function
+
+    def set_resolution(self, resolution):
+        self.resolution = resolution
+
+    def set_weights(self, weights):
+        self.network.set_weights(weights)
 
     def set_loss_function(self, loss_function):
         self.loss_function = loss_function
@@ -29,6 +42,9 @@ class Model():
     def set_metric(self, metric):
         self.stats_recoder.metric_function = metric
 
+    def set_stats_recorder(self, stats_recorder):
+        self.stats_recorder = stats_recorder
+
     # This function is used to create the ABOUT.md file it returns the network name
     def get_info(self):
         # get the name of the loss function
@@ -38,4 +54,24 @@ class Model():
         # get the learning rate
         lr = self.optimizer.lr.numpy()
 
-        return self.network_name, lf_name, lr
+        return self.network.name, lf_name, lr
+
+    def save_variables(self):
+        return {
+            'weights': self.network.get_weights(),
+            'build_function': self.build_function,
+            'resolution': self.resolution,
+            'loss_function': self.loss_function,
+            'optimizer': self.optimizer,
+            'stats_recorder': self.stats_recorder
+        }
+
+    def load_variables(self, variables):
+        self.set_resolution(variables['resolution'])
+
+        self.set_network(variables['build_function'])
+        self.network.set_weights(variables['weights'])
+
+        self.set_loss_function(variables['loss_function'])
+        self.set_optimizer(variables['optimizer'])
+        self.set_stats_recorder(variables['stats_recorder'])
