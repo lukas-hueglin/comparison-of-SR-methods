@@ -4,7 +4,6 @@
 ##
 
 import tensorflow as tf
-import multiprocessing
 
 import os
 import datetime
@@ -21,29 +20,12 @@ import GPUtil
 import numpy as np
 from tqdm import tqdm
 
+from abc import ABC
+
 from utils import TColors
 
 
 ## helper_functions ##
-
-# This function is called every epoch and saves the predicted images of the network.
-def generate_and_save(path, epoch,  images, gen_func):
-    # generate the output with the gen_func (generate_images() in Method class)
-    generated_images = gen_func(images)
-
-    # save each image
-    for i in range(len(generated_images)):
-        img_path = os.path.join(path,  'image_' + str(i))
-
-        # make a new folder
-        os.makedirs(img_path, exist_ok=True)
-
-        # make name
-        name = os.path.join(img_path, 'epoch_' + f'{epoch:03d}' + '.jpg')
-        
-        # the images have to be converted to BGR and streched to 255
-        img = cv2.cvtColor(np.array(generated_images[i])*255, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(name, img)
 
 # Function which creates a animated gif from all progress images
 def create_gif(path):
@@ -68,54 +50,43 @@ def create_gif(path):
                     image = imageio.imread(image_path)
                     writer.append_data(image)
 
+def get_next_version(raw_path):
+    index = 2
+    output_path = raw_path + '_v.' + f"{1:03d}"
+
+    # check if the path is already used and count up
+    while os.path.exists(output_path):
+        output_path = raw_path + '_v.' f"{index:03d}"
+        index += 1
+
+    # create this folder
+    os.makedirs(output_path, exist_ok=True)
+
+    return output_path
+
+
 ## Pipeline class ##
-class Pipeline():
-    def __init__(self, framework = None, epochs = 10, epoch_start=0, dataset_loader = None, path=None,  sample_images = None):
-        
+class Pipeline(ABC):
+    def __init__(self, framework=None):
         self.framework = framework
-        self.epochs = epochs
-        self.epoch_start = epoch_start
 
-        self.dataset_loader = dataset_loader
-
-        # Set the path of the framework root folder
-        rel_path = os.path.join(os.path.dirname( __file__ ), os.pardir, os.pardir, 'models', self.framework.name)
-        raw_path = os.path.abspath(rel_path)
-        index = 1
-
-        # check if the path is already used and count up
-        if path is None:
-            self.path = raw_path + '_v.' + f"{index:02d}"
-            while os.path.exists(self.path):
-                self.path = raw_path + '_v.' f"{index:02d}"
-                index += 1
-
-            # create this folder
-            os.makedirs(self.path, exist_ok=True)
-        else:
-            self.path = path
-
-        self.sample_images = sample_images
+        self.model_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), os.pardir, os.pardir, 'models'))
+        self.output_path = get_next_version(os.path.join(self.model_path, self.framework.name))
 
     ## setter functions for the class variables.
-    def set_path(self, path):
-        self.path = path
-
     def set_framework(self, framework):
         self.framework = framework
 
-    def set_epochs(self, epochs):
-        self.epochs = epochs
 
-    def set_train_data(self, training_data):
-        self.training_data = training_data
+    def load_framework(self, framework):
+        self.output_path = os.path.join(self.model_path, framework)
+        file_path = os.path.join(self.output_path,'checkpoints', 'saved.ckpt')
 
-    def set_validation_data(self, validation_data):
-        self.validation_data = validation_data
+        with open(file_path, 'rb') as file:
+            variables = dill.load(file)
 
-    def set_sample_images(self, sample_images):
-        self.sample_images = sample_images
-
+        self.framework = variables['class']()
+        self.framework.load_variables(variables)
 
     # This function is used to create the ABOUT.md file
     def create_ABOUT_file(self):
@@ -135,15 +106,39 @@ class Pipeline():
         text += '## 6 - Sample Images\n\n'
         text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
 
-        image_path = os.path.join(self.path, 'progress_images')
+        image_path = os.path.join(self.output_path, 'progress_images')
         image_dirs = os.listdir(image_path)
         for image in image_dirs:
             text += '![' + image + '](./progress_images/' + image + '/animfile.gif)\n'
 
         # write file
-        file = open(self.path+'\\ABOUT.md', 'a')
+        file = open(self.output_path+'\\ABOUT.md', 'w')
         file.write(text)
         file.close()
+
+
+
+class Trainer(Pipeline):
+    def __init__(self, framework=None, dataset_loader=None, sample_loader=None, epochs=1):
+        super().__init__(framework)
+
+        self.dataset_loader = dataset_loader
+
+        self.sample_loader = sample_loader
+        self.sample_images = self.sample_loader.load_samples()
+
+        self.epochs = epochs
+
+    ## setter functions for the class variables.
+    def set_epochs(self, epochs):
+        self.epochs = epochs
+
+    def set_dataset_loader(self, dataset_loader):
+        self.dataset_loader = dataset_loader
+
+    def set_sample_loader(self, sample_loader):
+        self.sample_loader = sample_loader
+        self.sample_images = self.sample_loader.load_samples()
 
 
     # The main train function. This function gets called by the user.
@@ -152,70 +147,28 @@ class Pipeline():
         if self.dataset_loader != None:
 
             # iterate over each epoch
-            for epoch in range(self.epoch_start, self.epochs+self.epoch_start):  
+            for epoch in range(self.epochs):  
+                # Add epoch timer
+                epoch_time = time.perf_counter()
+
                 # print a message
                 print(TColors.HEADER + '\nEpoch ' + str(epoch) + ':\n' +TColors.ENDC)
 
-                # start with multiprocessing
-                # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
-                feature_queue = multiprocessing.Queue()
-                label_queue = multiprocessing.Queue()
-
-                feature_loader = multiprocessing.Process(
-                    target=self.dataset_loader.load_dataset_mp,
-                    args=(feature_queue, True)
-                )
-                label_loader = multiprocessing.Process(
-                    target=self.dataset_loader.load_dataset_mp,
-                    args=(label_queue, False)
-                )
-
-                # start
-                f_start_timer = time.perf_counter()
-                l_start_timer = time.perf_counter()
-
-                feature_loader.start()
-                label_loader.start()
+                # prepare the data loading process
+                self.dataset_loader.prepare_loading(train=True)
 
                 # iterate over each batch
                 num_batches = int(np.ceil(self.dataset_loader.train_size/self.dataset_loader.batch_size))
                 for batch in tqdm(range(num_batches)):
-                    # wait until batch arrives
-                    feature_is_loaded = False
-                    label_is_loaded = False
-                    while True:
-                        # check if features are ready
-                        if not feature_queue.empty():
-                            if not feature_is_loaded:
-                                # add load time to stats recorder
-                                now = time.perf_counter()
-                                self.framework.update_stats_recorder(time=(now-f_start_timer, None, None))
-                                f_start_timer = now
-                            feature_is_loaded = True
-
-                        # check if labels are ready
-                        if not label_queue.empty():
-                            if not label_is_loaded:
-                                # add load time to stats recorder
-                                now = time.perf_counter()
-                                self.framework.update_stats_recorder(time=(None, now-l_start_timer, None))
-                                l_start_timer = now
-                            label_is_loaded = True
-
-                        if feature_is_loaded and label_is_loaded:
-                            # load the data into tensors
-                            features = tf.convert_to_tensor(feature_queue.get())
-                            labels = tf.convert_to_tensor(label_queue.get())
-                            break
-                        time.sleep(0.01)
+                    # get data to train
+                    (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
 
                     # train
-                    train_start_timer = time.perf_counter()
+                    now = time.perf_counter()
                     generated_images, loss = self.framework.train_step(features, labels)
 
-                    # add train time to stats recorder
-                    now = time.perf_counter()
-                    self.framework.update_stats_recorder(time=(None, None, now-train_start_timer))
+                    # stop timer
+                    train_time = time.perf_counter() - now
 
                     # generate sys_load
                     cpu_load = psutil.cpu_percent(interval=None, percpu=False)
@@ -229,50 +182,163 @@ class Pipeline():
                     self.framework.update_stats_recorder(
                         loss=loss,
                         sys_load=(cpu_load, ram_load, gpu_load),
+                        time=(feature_time, label_time, train_time, None),
                         metrics=(generated_images, labels)
                     )
 
                 # join the processes
-                feature_loader.join()
-                label_loader.join()
+                self.dataset_loader.close_loading()
 
                 # Generate sample image
-                if self.path != None and self.sample_images != None:
-                    image_path = os.path.join(self.path, 'progress_images')
-                    generate_and_save(image_path, epoch, self.sample_images, self.framework.generate_images)
+                if self.output_path != None and self.sample_images != None:
+                    self.perform_SR(epoch)
+
+                # Add epoch time
+                self.framework.update_stats_recorder(
+                    time=(None, None, None, time.perf_counter() - epoch_time),
+                )
 
             # plot stats
-            plot_path = os.path.join(self.path, 'statistics')
+            plot_path = os.path.join(self.output_path, 'statistics')
             name = self.framework.name
-            self.framework.plot_and_save_stats(plot_path, self.epochs + self.epoch_start, name)
+            self.framework.plot_and_save_stats(plot_path, self.epochs, name)
 
             # create gif
-            image_path = image_path = os.path.join(self.path, 'progress_images')
+            image_path = image_path = os.path.join(self.output_path, 'progress_images')
             create_gif(image_path)
 
             # make ABOUT.md file
             self.create_ABOUT_file()
 
             # save framework
-            self.serialize()
+            self.save_framework()
 
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
 
-    def serialize(self):
+    def perform_SR(self, epoch):
+        # generate images
+        generated_images = self.framework.generate_images(self.sample_images)
+        self.save_sample_images(generated_images, epoch)
+
+    def save_sample_images(self, images, epoch):
+        for i in range(len(images)):
+            img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
+
+            # make paths
+            dir_path = os.path.join(self.output_path, 'progress_images', 'image_' + f"{i:02d}")
+            img_path = os.path.join(dir_path, 'epoch_' + f"{epoch:03d}" + '.jpg')
+
+            # make a new folder
+            os.makedirs(dir_path, exist_ok=True)
+            
+            cv2.imwrite(img_path, img)
+
+    def save_framework(self):
         variables = self.framework.save_variables()
 
-        ckpt_path = os.path.join(self.path, 'checkpoints')
+        ckpt_path = os.path.join(self.output_path, 'checkpoints')
+        os.makedirs(ckpt_path, exist_ok=True)
+
+        file_path = os.path.join(ckpt_path, 'saved.ckpt')
+        with open(file_path, 'wb') as file:
+            dill.dump(variables, file)
+    
+class Validator(Pipeline):
+    def __init__(self, framework=None, dataset_loader=None):
+        super().__init__(framework, dataset_loader)
+
+        self.dataset_loader = dataset_loader
+
+    ## setter functions for the class variables.
+    def set_dataset_loader(self, dataset_loader):
+        self.dataset_loader = dataset_loader
+
+
+    def validate(self):
+        # print a message
+        print(TColors.HEADER + '\nValidation:\n' +TColors.ENDC)
+
+        # prepare the data loading process
+        self.dataset_loader.prepare_loading(train=False)
+
+        # iterate over each batch
+        num_batches = int(np.ceil(self.dataset_loader.validation_size/self.dataset_loader.batch_size))
+        for batch in tqdm(range(num_batches)):
+            # get data to train
+            (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
+
+            # train
+            now = time.perf_counter()
+            generated_images, loss = self.framework.train_step(features, labels)
+
+            # stop timer
+            train_time = time.perf_counter() - now
+
+            # generate sys_load
+            cpu_load = psutil.cpu_percent(interval=None, percpu=False)
+            ram_load = psutil.virtual_memory().percent
+            gpu_load = []
+            gpus = GPUtil.getGPUs()
+            for gpu in gpus:
+                gpu_load.append(gpu.load * 100)
+
+            # add values to stats recorder
+            self.framework.update_stats_recorder(
+                loss=loss,
+                sys_load=(cpu_load, ram_load, gpu_load),
+                time=(feature_time, label_time, train_time),
+                metrics=(generated_images, labels)
+            )
+
+        # join the processes
+        self.dataset_loader.close_loading()
+
+        # plot stats
+        plot_path = os.path.join(self.output_path, 'statistics')
+        name = self.framework.name
+        self.framework.plot_and_save_stats(plot_path, self.epochs, name)
+
+        # save framework
+        self.serialize()
+
+    def save_framework(self):
+        variables = self.framework.save_variables()
+
+        ckpt_path = os.path.join(self.output_path, 'checkpoints')
         os.makedirs(ckpt_path, exist_ok=True)
 
         file_path = os.path.join(ckpt_path, 'saved.ckpt')
         with open(file_path, 'wb') as file:
             dill.dump(variables, file)
 
-    def deserialize(self):
-        file_path = os.path.join(self.path,'checkpoints', 'saved.ckpt')
-        with open(file_path, 'rb') as file:
-            variables = dill.load(file)
 
-        self.framework = variables['class']()
-        self.framework.load_variables(variables)
+class Performer(Pipeline):
+    def __init__(self, framework=None, sample_loader=None, output_path=None):
+        super().__init__(framework)
+
+        self.sample_loader = sample_loader
+        self.sample_images = self.sample_loader.load_samples()
+
+        self.output_path = output_path
+
+     ## setter functions for the class variables.
+    def set_sample_loader(self, sample_loader):
+        self.sample_loader = sample_loader
+        self.sample_images = self.sample_loader.load_samples()
+
+    def set_output_path(self, output_path):
+        self.output_path = output_path
+
+
+    def perform_SR(self):
+        # generate images
+        generated_images = self.framework.generate_images(self.sample_images)
+        self.save_images(generated_images)
+
+    def save_images(self, images):
+        for i in range(len(images)):
+            img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
+            path = os.path.join(self.output_path, 'image_' + f"{i:03d}" + '.jpg')
+            
+            cv2.imwrite(path, img)

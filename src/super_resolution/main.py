@@ -2,15 +2,17 @@
 
 import tensorflow as tf
 
+import time
+
 from utils import DatasetLoader, SampleLoader, DatasetType
-from pipeline import Pipeline
+from pipeline import Trainer, Validator, Performer
 
 import presets
 
 
 ## global parameters
-EPOCHS = 15
-BATCH_SIZE = 64
+EPOCHS = 10
+BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
 ## main function
@@ -19,8 +21,8 @@ def main():
     # create dataset loader
     dataset_loader = DatasetLoader(
         path='D:\\Local UNSPLASH Dataset Full',
-        feature_lod=5,
-        label_lod=3,
+        feature_lod=2,
+        label_lod=1,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
         dataset_type=DatasetType.SUPERVISED,
@@ -30,22 +32,18 @@ def main():
     # create sample loader
     sample_loader = SampleLoader(
         path='D:\\UNSPLASH Samples',
-        lod=5
+        lod=2,
+        batch_size=BATCH_SIZE
     )
 
-    # load data
-    sample_images = sample_loader.load_samples() 
-
     # create pipeline
-    pipeline = Pipeline(
+    pipeline = Trainer(
         framework=presets.build_SRDemo(),
         epochs=EPOCHS,
-        epoch_start=0,
         dataset_loader=dataset_loader,
-        #path='C:\\Users\\lukas\\source\\repos\\comparison-of-SR-methods\\models\\SRDemo_v.45',
         
         # if you don't have sample images or don't need it just set it None
-        sample_images=sample_images
+        sample_loader=sample_loader
     )
 
     # load data

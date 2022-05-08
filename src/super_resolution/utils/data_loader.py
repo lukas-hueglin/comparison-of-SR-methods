@@ -8,6 +8,9 @@
 from cmath import inf
 import tensorflow as tf
 
+import multiprocessing
+import time
+
 import os
 import numpy as np
 import h5py
@@ -19,8 +22,14 @@ from utils import TColors
 
 ## helper enum
 class DatasetType(Enum):
-    SUPERVISED = 1
-    UNSUPERVISED = 2
+    SUPERVISED = 0
+    UNSUPERVISED = 1
+
+class DatasetPortion(Enum):
+    TRAIN_FEATURE = 0
+    TRAIN_LABEL = 1
+    VALIDATION_FEATURE = 2
+    VALIDATION_LABEL = 3
 
 
 ## helper functions ##
@@ -66,9 +75,8 @@ def load_images(path, first_image = 0, num_images = -1, silent=False):
 # loads Features and Labels into a tf.Dataset
 class DatasetLoader():
     def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = DatasetType.SUPERVISED, train_ratio = 0.8, dataset_size = -1):
-        self.path = path
-        self.feature_lod = feature_lod
-        self.label_lod = label_lod
+        self.feature_path = os.path.join(path, 'data', 'LOD_' + str(feature_lod) + '.hdf5')
+        self.label_path = os.path.join(path, 'data', 'LOD_' + str(label_lod) + '.hdf5')
 
         self.batch_size = batch_size
         self.buffer_size = buffer_size
@@ -81,6 +89,10 @@ class DatasetLoader():
             self.dataset_size = dataset_size
 
         self.train_size = int(self.dataset_size*train_ratio)
+        self.validation_size = self.dataset_size - self.train_size
+
+        self.feature_job = (None, None)
+        self.label_job = (None, None)
 
     ## setter functions for class variables
     def set_path(self, path):
@@ -97,89 +109,101 @@ class DatasetLoader():
         self.buffer_size = buffer_size
 
 
-    ## dataset loader function
-    # REMINDER: The datasets are not repeated for each epoch, I am not sure if this is going to be a problem!
-    def load_dataset(self, first_image = 0, num_images = -1):
-        if self.path != None:
-            # create the paths for the feature and label .hdf5 files.
-            feature_path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod) + '.hdf5')
-            label_path = os.path.join(self.path, 'data', 'LOD_' + str(self.label_lod) + '.hdf5')
+    # prepare dataset_loader 
+    def prepare_loading(self, train=True):
+        # start with multiprocessing
+        # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
 
-            # change image range if there was no custom or a stupid entry made
-            if num_images <= -1:
-                num_images = inf
+        # create queues and jobs
+        feature_queue = multiprocessing.Queue()
+        label_queue = multiprocessing.Queue()
 
-            # load the images into numpy arrays
-            features = load_images(feature_path, first_image, num_images)
-            labels = load_images(label_path, first_image, num_images)
+        feature_loader = multiprocessing.Process(
+            target=self.load_dataset_mp,
+            args=(feature_queue, self.feature_path, train)
+        )
+        label_loader = multiprocessing.Process(
+            target=self.load_dataset_mp,
+            args=(label_queue, self.label_path, train)
+        )
 
-            # shuffle features so a unsupervised dataset is generated
-            if self.dataset_type == DatasetType.UNSUPERVISED:
-                features = np.random.shuffle(features)
+        # start processes and add them to the class variables
+        feature_loader.start()
+        label_loader.start()
 
+        self.feature_job = (feature_loader, feature_queue)
+        self.label_job = (label_loader, label_queue)
 
-            # split the datasets into test and validation datasets
-            f_train = features[:int(features.shape[0]*self.train_ratio)]
-            f_validation = features[int(features.shape[0]*self.train_ratio):]
-            l_train = labels[:int(labels.shape[0]*self.train_ratio)]
-            l_validation = labels[int(labels.shape[0]*self.train_ratio):]
+    def access_loading(self):
+        # wait until batch arrives
+        while True:
+            if not self.feature_job[1].empty() and not self.label_job[1].empty():
+                return (self.feature_job[1].get(), self.label_job[1].get())
+            time.sleep(0.01)
 
-            training_dataset = tf.data.Dataset.from_tensor_slices((f_train, l_train))
-            validation_dataset = tf.data.Dataset.from_tensor_slices((f_validation, l_validation))
+    def close_loading(self):
+        self.feature_job[0].join()
+        self.label_job[0].join()
 
-            # batch the training_dataset
-            training_dataset = training_dataset.batch(self.batch_size)
-
-            return training_dataset, validation_dataset
+        self.feature_job = (None, None)
+        self.label_job = (None, None)
 
     # dataset loader function with multiprocessing
-    def load_dataset_mp(self, queue, features=True):
-        def put_on_queue(imgs):
-            # shuffle features so a unsupervised dataset is generated
-            if self.dataset_type == DatasetType.UNSUPERVISED:
-                imgs = np.random.shuffle(imgs)
-            # put on queue
-            queue.put(imgs)
+    def load_dataset_mp(self, queue, path, train=True):
+        # start timer
+        timer = time.perf_counter()
 
-        if self.path != None:
-            # create the paths for the feature and label .hdf5 files.
-            if features:
-                path = os.path.join(self.path, 'data', 'LOD_' + str(self.feature_lod) + '.hdf5')
-            else:
-                path = os.path.join(self.path, 'data', 'LOD_' + str(self.label_lod) + '.hdf5')
+        # load the images
+        images = []
 
-            # load the images
-            images = []
-            
-            # open .hdf5 file
-            with h5py.File(path, 'r') as hf:
-                # do try-except to stop double loop
-                try:
-                    batch_nodes = hf.keys()
-                    image_count = 0
+        # set size
+        size = self.train_size if train else self.validation_size
+        
+        # open .hdf5 file
+        with h5py.File(path, 'r') as hf:
+            # do try-except to stop double loop
+            try:
+                batch_nodes = hf.keys() if train else reversed(hf.keys())
+                image_count = 0
 
-                    # iterate all batches
-                    for b in batch_nodes:
-                        image_nodes = hf[b].keys()
+                # iterate all batches
+                for b in batch_nodes:
+                    image_nodes = hf[b].keys() if train else reversed(hf[b].keys())
 
-                        # iterate all images
-                        for i in image_nodes:
-                            images.append(np.array(hf[b+'/'+i])/255) # normalize
-                            image_count += 1
+                    # iterate all images
+                    for i in image_nodes:
+                        images.append(np.array(hf[b+'/'+i])/255) # normalize
+                        image_count += 1
 
-                            # check if batch is full
-                            if image_count % self.batch_size == 0:
-                                put_on_queue(images)
-                                images = []
-                            # check if finished
-                            if image_count >= self.train_size:
-                                raise StopIteration
-                except StopIteration:
-                    pass
+                        # check if batch is full
+                        if image_count % self.batch_size == 0:
+                            # shuffle features so a unsupervised dataset is generated
+                            if self.dataset_type == DatasetType.UNSUPERVISED:
+                                images = np.random.shuffle(images)
 
-                # if images are left put them also on the queue
-                if len(images) != 0:
-                    put_on_queue(images)
+                            # stop timer
+                            now = time.perf_counter()
+
+                            # put on queue
+                            queue.put((images,now-timer))
+
+                            timer = now
+                            images = []
+
+                        # check if finished
+                        if image_count >= size:
+                            raise StopIteration
+            except StopIteration:
+                pass
+
+            # if images are left put them also on the queue
+            if len(images) != 0:
+                # shuffle features so a unsupervised dataset is generated
+                if self.dataset_type == DatasetType.UNSUPERVISED:
+                    images = np.random.shuffle(images)
+
+                # put on queue
+                queue.put((images, time.perf_counter()-timer))
 
     # function which returns the size of the given dataset
     def get_dataset_size(self):
@@ -202,9 +226,13 @@ class DatasetLoader():
 
 # loads just one dataset into a tf.tensor
 class SampleLoader():
-    def __init__(self, path=None, lod = 1):
+    def __init__(self, path=None, lod = 1, batch_size=None):
         self.path = path
         self.lod = lod
+
+
+        self.batch_size = batch_size
+        self.size = self.get_dataset_size()
 
     ## setter functions for class variables
     def set_path(self, path):
@@ -231,3 +259,21 @@ class SampleLoader():
             tensor = tf.convert_to_tensor(samples)
 
             return tensor
+
+    # function which returns the size of the given dataset
+    def get_dataset_size(self):
+        # set lod0 as file
+        file = os.path.join(self.path, 'data', 'LOD_0.hdf5')
+
+        # open .hdf5 file
+        with h5py.File(file, 'r') as hf:
+            # do try-except to stop double loop
+            image_count = 0
+            batches = hf.keys()
+
+            # iterate all batches
+            for b in batches:
+                images = hf[b].keys()
+                image_count += len(images)
+
+        return image_count
