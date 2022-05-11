@@ -68,7 +68,6 @@ class StatsRecorder():
         self.feature_load_time = []
         self.label_load_time = []
         self.train_time = []
-        self.epoch_time = []
 
         self.cpu_load = []
         self.ram_load = []
@@ -88,7 +87,7 @@ class StatsRecorder():
     def add_time(self, time):
         if time is not None:
             # unpack
-            f_time, l_time, t_time, t_epoch = time
+            f_time, l_time, t_time = time
 
             if f_time is not None:
                 self.feature_load_time.append(f_time)
@@ -96,8 +95,6 @@ class StatsRecorder():
                 self.label_load_time.append(l_time)
             if t_time is not None:
                 self.train_time.append(t_time)
-            if t_epoch is not None:
-                self.epoch_time.append(t_epoch)
 
     # add a new load value to loads
     def add_sys_load(self, sys_load):
@@ -146,18 +143,15 @@ class StatsRecorder():
     def plot_time(self, ax, epochs):
         # make x - axis
         x = np.linspace(0, epochs, num=len(self.feature_load_time))
-        x_total = np.linspace(0, epochs, num=len(self.epoch_time))
         
         # set labels
         ax.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
-        ax.set_ylabel('Time per Batch (s)', fontsize=AX_LABEL_FS)
         ax.label_outer()
 
         # plot
         ax.plot(x, self.feature_load_time, linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
         ax.plot(x, self.label_load_time, linewidth=PRIMARY_LW, color='tab:green', label='label load time')
         ax.plot(x, self.train_time, linewidth=PRIMARY_LW, color='tab:orange', label='train time')
-        ax.plot(x_total, self.epoch_time, linewidth=PRIMARY_LW, linestyle=':', color='gray', label='time per epoch')
 
         ax.legend(loc='best', fontsize=LABEL_FS)
 

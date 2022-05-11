@@ -4,6 +4,7 @@
 ##
 
 import tensorflow as tf
+import multiprocessing as mp
 
 import os
 import datetime
@@ -63,6 +64,25 @@ def get_next_version(raw_path):
     os.makedirs(output_path, exist_ok=True)
 
     return output_path
+
+# this function is called as a parallel worker and puts
+# the average cpu, ram and gpu load on the given queue
+# (It isn't used at the moment, because it isn't working yet.)
+def check_sys_load(cpu_load, ram_load, gpu_load):
+    while True:
+        # get cpu load
+        cpu_load.append(psutil.cpu_percent(interval=None, percpu=False))
+
+        # get ram load
+        ram_load.append(psutil.virtual_memory().percent)
+
+        # get gpu load
+        gpus = GPUtil.getGPUs()
+        for gpu in gpus:
+            gpu_load.append(gpu.load * 100)
+
+        #time.sleep(0.01)
+
 
 
 ## Pipeline class ##
@@ -148,9 +168,6 @@ class Trainer(Pipeline):
 
             # iterate over each epoch
             for epoch in range(self.epochs):  
-                # Add epoch timer
-                epoch_time = time.perf_counter()
-
                 # print a message
                 print(TColors.HEADER + '\nEpoch ' + str(epoch) + ':\n' +TColors.ENDC)
 
@@ -173,16 +190,17 @@ class Trainer(Pipeline):
                     # generate sys_load
                     cpu_load = psutil.cpu_percent(interval=None, percpu=False)
                     ram_load = psutil.virtual_memory().percent
-                    gpu_load = []
+                    gpu_load_list = []
                     gpus = GPUtil.getGPUs()
                     for gpu in gpus:
-                        gpu_load.append(gpu.load * 100)
+                        gpu_load_list.append(gpu.load * 100)
+                    gpu_load = np.mean(gpu_load_list)
 
                     # add values to stats recorder
                     self.framework.update_stats_recorder(
                         loss=loss,
                         sys_load=(cpu_load, ram_load, gpu_load),
-                        time=(feature_time, label_time, train_time, None),
+                        time=(feature_time, label_time, train_time),
                         metrics=(generated_images, labels)
                     )
 
@@ -192,11 +210,6 @@ class Trainer(Pipeline):
                 # Generate sample image
                 if self.output_path != None and self.sample_images != None:
                     self.perform_SR(epoch)
-
-                # Add epoch time
-                self.framework.update_stats_recorder(
-                    time=(None, None, None, time.perf_counter() - epoch_time),
-                )
 
             # plot stats
             plot_path = os.path.join(self.output_path, 'statistics')

@@ -8,7 +8,7 @@
 from cmath import inf
 import tensorflow as tf
 
-import multiprocessing
+import multiprocessing as mp
 import time
 
 import os
@@ -115,14 +115,14 @@ class DatasetLoader():
         # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
 
         # create queues and jobs
-        feature_queue = multiprocessing.Queue()
-        label_queue = multiprocessing.Queue()
+        feature_queue = mp.Queue()
+        label_queue = mp.Queue()
 
-        feature_loader = multiprocessing.Process(
+        feature_loader = mp.Process(
             target=self.load_dataset_mp,
             args=(feature_queue, self.feature_path, train)
         )
-        label_loader = multiprocessing.Process(
+        label_loader = mp.Process(
             target=self.load_dataset_mp,
             args=(label_queue, self.label_path, train)
         )

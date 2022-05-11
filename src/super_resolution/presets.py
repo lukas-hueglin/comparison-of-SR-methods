@@ -80,8 +80,8 @@ def build_SRResNet():
 
 # This function builds just a test framework
 def build_SRDemo():
-    INPUT_RES = 256
-    OUTPUT_RES = 512
+    INPUT_RES = 32
+    OUTPUT_RES = 128
 
     #builds the model
     model = Model(
