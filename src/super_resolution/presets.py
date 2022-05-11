@@ -45,6 +45,7 @@ def build_SRGAN():
         output_res=OUTPUT_RES,
         upsample_function=upsampling.bicubic,
         method=method,
+        metric_functions=[stats.PSNR_metric, stats.SSIM_metric],
         name = 'SRGAN'
     )
 
@@ -72,6 +73,7 @@ def build_SRResNet():
         output_res=OUTPUT_RES,
         upsample_function=upsampling.bicubic,
         method=method,
+        metric_functions=[stats.PSNR_metric, stats.SSIM_metric],
         name = 'SRResNet'
     )
 
@@ -89,7 +91,6 @@ def build_SRDemo():
         resolution=OUTPUT_RES,
         loss_function=lf.MSE_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4),
-        metric_functions=[stats.PSNR_metric, stats.SSIM_metric]
     )
 
     # builds the method
@@ -101,6 +102,7 @@ def build_SRDemo():
         output_res=OUTPUT_RES,
         upsample_function=upsampling.bicubic,
         method=method,
+        metric_functions=[stats.PSNR_metric, stats.SSIM_metric],
         name='SRDemo'
     )
 

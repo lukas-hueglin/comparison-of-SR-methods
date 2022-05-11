@@ -8,12 +8,12 @@
 import tensorflow as tf
 
 import os
-import dill
+import matplotlib.pyplot as plt
 
 import numpy as np
 from abc import ABC, abstractmethod
 
-from utils import TColors
+from utils import TColors, StatsRecorder
 
 
 ## upsampling functions ##
@@ -29,13 +29,16 @@ def lanczos(img, res):
 
 ## Framework classes ##
 class Framework(ABC):
-    def __init__(self, input_res = None, output_res = None, upsample_function = None, name = 'framework'):
+    def __init__(self, input_res = None, output_res = None, upsample_function = None, metric_functions=[], name = 'framework'):
         # The input and output resolution of the images
         self.input_res = input_res
         self.output_res = output_res
 
         # The upsampling type/function
         self.upsample_function = upsample_function
+
+        self.stats_recorder = StatsRecorder(metric_functions)
+
         # The name of the "algorithm" used for saving the models.
         self.name = name
 
@@ -48,6 +51,9 @@ class Framework(ABC):
         self.input_res = input_res
         self.output_res = output_res
         self.check_resolution()
+
+    def set_stats_recorder(self, stats_recorder):
+        self.stats_recorder = stats_recorder
 
     def set_upsample_function(self, upsample_function):
         self.upsample_function = upsample_function
@@ -93,8 +99,52 @@ class Framework(ABC):
 
     @abstractmethod
     # adds the values to the StatsRecorder
-    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
         pass
+
+    @abstractmethod
+    def plot_and_save_stats(self, path, name, train=True):
+        pass
+
+    @abstractmethod
+    def add_epoch(self):
+        pass
+
+    def plot_time(self, path, name, train=True):
+        if train:
+            fig, ax_train = plt.subplots()
+            ax_validation = None
+        else:
+            fig, (ax_train, ax_validation) = plt.subplots(2)
+
+        fig.suptitle(name)
+        self.stats_recorder.plot_time(ax_train, ax_validation, train=train)
+        
+        # save the plot
+        fig.savefig(path + '\\time.png', dpi=300, format='png')
+
+    def plot_sys_load(self, path, name, train=True):
+        if train:
+            fig, ax_train = plt.subplots()
+            ax_validation = None
+        else:
+            fig, (ax_train, ax_validation) = plt.subplots(2)
+
+        fig.suptitle(name)
+        self.stats_recorder.plot_sys_load(ax_train, ax_validation, train=train)
+        
+        # save the plot
+        fig.savefig(path + '\\system_load.png', dpi=300, format='png')
+
+    # plots the metrics
+    def plot_metrics(self, path, name, train=True):
+        fig, axs = plt.subplots(len(self.stats_recorder.metric_functions))
+        fig.suptitle(name)
+
+        self.stats_recorder.plot_metrics(axs, train=train)
+        
+        # save the plot
+        fig.savefig(path + '\\metrics.png', dpi=300, format='png')
 
     @abstractmethod
     def save_variables(self):
@@ -102,6 +152,7 @@ class Framework(ABC):
             'input_res': self.input_res,
             'output_res': self.output_res,
             'upsample_function': self.upsample_function,
+            'stats_recorder': self.stats_recorder,
             'name': self.name
         }
 
@@ -110,15 +161,15 @@ class Framework(ABC):
         self.input_res = variables['input_res']
         self.output_res = variables['output_res']
         self.upsample_function = variables['upsample_function']
+        self.stats_recorder = variables['stats_recorder']
         self.name = variables['name']
-        pass
 
 
 # This class scales the input images
 # up first and passes them aferwards to the network
 class PreUpsampling(Framework):
-    def __init__(self, input_res=None, output_res=None, upsample_function=None, method=None, name='framework'):
-        super().__init__(input_res, output_res, upsample_function, name)
+    def __init__(self, input_res=None, output_res=None, upsample_function=None, method=None, metric_functions=[], name='framework'):
+        super().__init__(input_res, output_res, upsample_function, metric_functions, name)
 
         # added the method variable
         self.method = method
@@ -153,18 +204,33 @@ class PreUpsampling(Framework):
         return super().get_info(class_name)
 
     # adds the values to the StatsRecorder
-    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
-        self.method.update_stats_recorder(loss=loss, time=time, sys_load=sys_load, metrics=metrics)
-        
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
+        # update loss
+        if train:
+            self.method.add_loss(loss)
+
+        # add time
+        self.stats_recorder.add_time(time, train=train)
+        # add sys_load
+        self.stats_recorder.add_sys_load(sys_load, train=train)
+        # add metrics
+        self.stats_recorder.add_metrics(metrics, train=train)
+
+    def add_epoch(self):
+        self.method.add_epoch()
+        self.stats_recorder.add_epoch()
+
     # plots the stats
-    def plot_and_save_stats(self, path, epochs, name):
+    def plot_and_save_stats(self, path, name, train=True):
         os.makedirs(path, exist_ok=True)
 
-        # plot
-        self.method.plot_loss(path, epochs, name)
-        self.method.plot_time(path, epochs, name)
-        self.method.plot_sys_load(path, epochs, name)
-        self.method.plot_metrics(path, epochs, name)
+        # plot loss
+        self.method.plot_loss(path, name)
+
+        # plot time, sys_load and metrics
+        self.plot_time(path, name, train=train)
+        self.plot_sys_load(path, name, train=train)
+        self.plot_metrics(path, name, train=train)
 
     def save_variables(self):
         return super().save_variables() | {
@@ -258,23 +324,36 @@ class ProgressiveUpsampling(Framework):
         return super().get_info(class_name)
 
     # adds the values to the StatsRecorder
-    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None):
-        # add time and sys_load just to the first one
-        self.methods[0].update_stats_recorder(loss=loss[0], time=time, sys_load=sys_load, metrics=metrics)
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
+        # update loss
+        if train:
+            for i in range(self.steps):
+                self.methods[i].update_stats_recorder(loss=loss[i])
 
-        for i in range(1, self.steps):
-            self.methods[i].update_stats_recorder(loss=loss[i])
+        # add time
+        self.stats_recorder.add_time(time, train=train)
+        # add sys_load
+        self.stats_recorder.add_sys_load(sys_load, train=train)
+        # add metrics
+        self.stats_recorder.add_metrics(metrics, train=train)
         
     # plots the stats
-    def plot_and_save_stats(self, path, epochs, name):
+    def plot_and_save_stats(self, path, epochs, name, train=True):
         os.makedirs(path, exist_ok=True)
 
-        # plot
+        # plot loss
         for method in self.methods:
             method.plot_loss(path, epochs, name)
-        self.methods[0].plot_time(path, epochs, name)
-        self.methods[0].plot_sys_load(path, epochs, name)
-        self.methods[0].plot_metrics(path, epochs, name)
+
+        # plot time, sys_load and metrics
+        self.plot_time(path, name, train=train)
+        self.plot_sys_load(path, name, train=train)
+        self.plot_metrics(path, name, train=train)
+
+    def add_epochs(self):
+        for method in self.methods:
+            method.add_epoch()
+        self.stats_recorder.add_epoch()
 
     def save_variables(self):
         methods = {}

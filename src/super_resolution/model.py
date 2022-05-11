@@ -5,10 +5,10 @@
 #   - a tensorflow optimizer
 ##
 
-from utils import StatsRecorder
+from utils import StatsRecorder, LossRecorder
 
 class Model():
-    def __init__(self, build_function=None, resolution=None, loss_function = None, optimizer = None, metric_functions=[]):
+    def __init__(self, build_function=None, resolution=None, loss_function = None, optimizer = None):
         super().__init__()
         self.resolution = resolution
 
@@ -19,7 +19,7 @@ class Model():
         self.loss_function = loss_function
         self.optimizer = optimizer
 
-        self.stats_recorder = StatsRecorder(metric_functions)
+        self.loss_recorder = LossRecorder()
 
 
     ## setter functions for the class variables
@@ -40,10 +40,10 @@ class Model():
         self.optimizer = optimizer
 
     def set_metric(self, metric):
-        self.stats_recoder.metric_function = metric
+        self.loss_recoder.metric_function = metric
 
-    def set_stats_recorder(self, stats_recorder):
-        self.stats_recorder = stats_recorder
+    def set_loss_recorder(self, loss_recorder):
+        self.loss_recorder = loss_recorder
 
     # This function is used to create the ABOUT.md file it returns the network name
     def get_info(self):
@@ -63,7 +63,7 @@ class Model():
             'resolution': self.resolution,
             'loss_function': self.loss_function,
             'optimizer': self.optimizer,
-            'stats_recorder': self.stats_recorder
+            'loss_recorder': self.loss_recorder
         }
 
     def load_variables(self, variables):
@@ -74,4 +74,4 @@ class Model():
 
         self.set_loss_function(variables['loss_function'])
         self.set_optimizer(variables['optimizer'])
-        self.set_stats_recorder(variables['stats_recorder'])
+        self.set_loss_recorder(variables['loss_recorder'])

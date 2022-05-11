@@ -11,7 +11,7 @@ import presets
 
 
 ## global parameters
-EPOCHS = 1
+EPOCHS = 5
 BATCH_SIZE = 64
 BUFFER_SIZE = 1000
 
@@ -37,17 +37,19 @@ def main():
     )
 
     # create pipeline
-    pipeline = Trainer(
+    pipeline = Validator(
         framework=presets.build_SRDemo(),
-        epochs=EPOCHS,
-        dataset_loader=dataset_loader,
+        #epochs=EPOCHS,
+        dataset_loader=dataset_loader
         
         # if you don't have sample images or don't need it just set it None
-        sample_loader=sample_loader
+        #sample_loader=sample_loader
     )
 
+    pipeline.load_framework('C:\\Users\\lukas\\source\\repos\\comparison-of-SR-methods\\models\\SRDemo_v.001')
+
     # train
-    pipeline.train()
+    pipeline.validate()
 
 
 

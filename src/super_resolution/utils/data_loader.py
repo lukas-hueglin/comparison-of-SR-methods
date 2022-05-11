@@ -75,6 +75,7 @@ def load_images(path, first_image = 0, num_images = -1, silent=False):
 # loads Features and Labels into a tf.Dataset
 class DatasetLoader():
     def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = DatasetType.SUPERVISED, train_ratio = 0.8, dataset_size = -1):
+        self.path = path
         self.feature_path = os.path.join(path, 'data', 'LOD_' + str(feature_lod) + '.hdf5')
         self.label_path = os.path.join(path, 'data', 'LOD_' + str(label_lod) + '.hdf5')
 
@@ -88,6 +89,7 @@ class DatasetLoader():
         else:
             self.dataset_size = dataset_size
 
+        self.train_ratio = train_ratio
         self.train_size = int(self.dataset_size*train_ratio)
         self.validation_size = self.dataset_size - self.train_size
 

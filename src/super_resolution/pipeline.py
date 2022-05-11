@@ -98,8 +98,8 @@ class Pipeline(ABC):
         self.framework = framework
 
 
-    def load_framework(self, framework):
-        self.output_path = os.path.join(self.model_path, framework)
+    def load_framework(self, framework_path):
+        self.output_path = os.path.join(self.model_path, framework_path)
         file_path = os.path.join(self.output_path,'checkpoints', 'saved.ckpt')
 
         with open(file_path, 'rb') as file:
@@ -107,35 +107,6 @@ class Pipeline(ABC):
 
         self.framework = variables['class']()
         self.framework.load_variables(variables)
-
-    # This function is used to create the ABOUT.md file
-    def create_ABOUT_file(self):
-        # get info from framework
-        text = self.framework.get_info()
-        # add 3 - Training parameters
-        text += '## 3 - Training parameters\n\n'
-        text += 'Date: ' + str(datetime.date.today()) + '\n\n'
-        text += 'Epochs: ' + str(self.epochs) + '</br>\n'
-        text += 'Batch size: ...' + '</br>\n'
-        text += 'Buffer size: ...' + '\n\n'
-        # add 4 - datasets (in future)
-        text += '## 4 - Datasets\n\n'
-        text += 'Dataset: ... </br>\n'
-        text += 'Training - Validation ratio: ...\n\n'
-        # add 5 - Sample images
-        text += '## 6 - Sample Images\n\n'
-        text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
-
-        image_path = os.path.join(self.output_path, 'progress_images')
-        image_dirs = os.listdir(image_path)
-        for image in image_dirs:
-            text += '![' + image + '](./progress_images/' + image + '/animfile.gif)\n'
-
-        # write file
-        file = open(self.output_path+'\\ABOUT.md', 'w')
-        file.write(text)
-        file.close()
-
 
 
 class Trainer(Pipeline):
@@ -167,7 +138,8 @@ class Trainer(Pipeline):
         if self.dataset_loader != None:
 
             # iterate over each epoch
-            for epoch in range(self.epochs):  
+            start_epoch = self.framework.stats_recorder.epochs
+            for epoch in range(start_epoch, self.epochs + start_epoch):  
                 # print a message
                 print(TColors.HEADER + '\nEpoch ' + str(epoch) + ':\n' +TColors.ENDC)
 
@@ -185,7 +157,7 @@ class Trainer(Pipeline):
                     generated_images, loss = self.framework.train_step(features, labels)
 
                     # stop timer
-                    train_time = time.perf_counter() - now
+                    network_time = time.perf_counter() - now
 
                     # generate sys_load
                     cpu_load = psutil.cpu_percent(interval=None, percpu=False)
@@ -200,8 +172,9 @@ class Trainer(Pipeline):
                     self.framework.update_stats_recorder(
                         loss=loss,
                         sys_load=(cpu_load, ram_load, gpu_load),
-                        time=(feature_time, label_time, train_time),
-                        metrics=(generated_images, labels)
+                        time=(feature_time, label_time, network_time),
+                        metrics=(generated_images, labels),
+                        train=True
                     )
 
                 # join the processes
@@ -211,10 +184,13 @@ class Trainer(Pipeline):
                 if self.output_path != None and self.sample_images != None:
                     self.perform_SR(epoch)
 
+                # add a epoch to the stats recorders
+                self.framework.add_epoch()
+
             # plot stats
             plot_path = os.path.join(self.output_path, 'statistics')
             name = self.framework.name
-            self.framework.plot_and_save_stats(plot_path, self.epochs, name)
+            self.framework.plot_and_save_stats(plot_path, name, train=True)
 
             # create gif
             image_path = image_path = os.path.join(self.output_path, 'progress_images')
@@ -247,6 +223,35 @@ class Trainer(Pipeline):
             
             cv2.imwrite(img_path, img)
 
+        # This function is used to create the ABOUT.md file
+    def create_ABOUT_file(self):
+        # get info from framework
+        text = self.framework.get_info()
+        # add 3 - Training parameters
+        text += '## 3 - Training parameters\n\n'
+        text += 'Date: ' + str(datetime.date.today()) + '\n\n'
+        text += 'Epochs: ' + str(self.framework.stats_recorder.epochs) + '</br>\n'
+        text += 'Batch size: ' + str(self.dataset_loader.batch_size) + '</br>\n'
+        text += 'Buffer size: ' + str(self.dataset_loader.buffer_size) + '\n\n'
+        # add 4 - datasets (in future)
+        text += '## 4 - Datasets\n\n'
+        text += 'Dataset: ' + self.dataset_loader.path + ' </br>\n'
+        text += 'Dataset size: ' + str(self.dataset_loader.dataset_size) + ' </br>\n'
+        text += 'Training - Validation ratio: ' + str(self.dataset_loader.train_ratio) + '\n\n'
+        # add 5 - Sample images
+        text += '## 6 - Sample Images\n\n'
+        text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
+
+        image_path = os.path.join(self.output_path, 'progress_images')
+        image_dirs = os.listdir(image_path)
+        for image in image_dirs:
+            text += '![' + image + '](./progress_images/' + image + '/animfile.gif)\n'
+
+        # write file
+        file = open(self.output_path+'\\ABOUT.md', 'w')
+        file.write(text)
+        file.close()
+
     def save_framework(self):
         variables = self.framework.save_variables()
 
@@ -259,7 +264,7 @@ class Trainer(Pipeline):
     
 class Validator(Pipeline):
     def __init__(self, framework=None, dataset_loader=None):
-        super().__init__(framework, dataset_loader)
+        super().__init__(framework)
 
         self.dataset_loader = dataset_loader
 
@@ -286,22 +291,24 @@ class Validator(Pipeline):
             generated_images, loss = self.framework.train_step(features, labels)
 
             # stop timer
-            train_time = time.perf_counter() - now
+            network_time = time.perf_counter() - now
 
             # generate sys_load
             cpu_load = psutil.cpu_percent(interval=None, percpu=False)
             ram_load = psutil.virtual_memory().percent
-            gpu_load = []
+            gpu_load_list = []
             gpus = GPUtil.getGPUs()
             for gpu in gpus:
-                gpu_load.append(gpu.load * 100)
+                gpu_load_list.append(gpu.load * 100)
+            gpu_load = np.mean(gpu_load_list)
 
             # add values to stats recorder
             self.framework.update_stats_recorder(
                 loss=loss,
                 sys_load=(cpu_load, ram_load, gpu_load),
-                time=(feature_time, label_time, train_time),
-                metrics=(generated_images, labels)
+                time=(feature_time, label_time, network_time),
+                metrics=(generated_images, labels),
+                train=False
             )
 
         # join the processes
@@ -310,20 +317,7 @@ class Validator(Pipeline):
         # plot stats
         plot_path = os.path.join(self.output_path, 'statistics')
         name = self.framework.name
-        self.framework.plot_and_save_stats(plot_path, self.epochs, name)
-
-        # save framework
-        self.serialize()
-
-    def save_framework(self):
-        variables = self.framework.save_variables()
-
-        ckpt_path = os.path.join(self.output_path, 'checkpoints')
-        os.makedirs(ckpt_path, exist_ok=True)
-
-        file_path = os.path.join(ckpt_path, 'saved.ckpt')
-        with open(file_path, 'wb') as file:
-            dill.dump(variables, file)
+        self.framework.plot_and_save_stats(plot_path, name, train=False)
 
 
 class Performer(Pipeline):
