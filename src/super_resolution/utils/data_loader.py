@@ -15,66 +15,27 @@ import os
 import numpy as np
 import h5py
 from tqdm import tqdm
-from enum import Enum
+
+import cv2
 
 from utils import TColors
 
 
-## helper enum
-class DatasetType(Enum):
-    SUPERVISED = 0
-    UNSUPERVISED = 1
-
-class DatasetPortion(Enum):
-    TRAIN_FEATURE = 0
-    TRAIN_LABEL = 1
-    VALIDATION_FEATURE = 2
-    VALIDATION_LABEL = 3
-
-
 ## helper functions ##
 
-# loads images from a .hdf5 file into a numpy array
-def load_images(path, first_image = 0, num_images = -1, silent=False):
-        imgs = []
+# resizes an array of images to de desired squared size
+def resize_images(imgs, size, interpolation):
+    output_imgs = []
 
-        # print message
-        if not silent:
-            print(TColors.OKBLUE + '\nLoading images from ' + path + ':\n' + TColors.ENDC)
-        
-        # open .hdf5 file
-        with h5py.File(path, 'r') as hf:
-            # do try-except to stop double loop
-            try:
-                image_count = 0
-                batches = hf.keys()
+    for img in imgs:
+        output_imgs.append(cv2.resize(img, (size, size), interpolation=interpolation))
 
-                # iterate all batches
-                if silent:
-                    it = batches
-                else:
-                    it = tqdm(batches)
-                for b in it:
-                    images = hf[b].keys()
-
-                    # iterate all images
-                    for i in images:
-                        # check if the image should be appended
-                        if image_count >= first_image:
-                            imgs.append(np.array(hf[b+'/'+i])/255) # normalize
-                        if image_count - first_image >= num_images - 1:
-                            raise StopIteration
-                        # add one image
-                        image_count += 1
-            except StopIteration:
-                pass
-
-        return np.array(imgs)
+    return np.array(output_imgs)
 
 
 # loads Features and Labels into a tf.Dataset
 class DatasetLoader():
-    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = DatasetType.SUPERVISED, train_ratio = 0.8, dataset_size = -1):
+    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = 'supervised', train_ratio = 0.8, dataset_size = -1):
         self.path = path
         self.feature_path = os.path.join(path, 'data', 'LOD_' + str(feature_lod) + '.hdf5')
         self.label_path = os.path.join(path, 'data', 'LOD_' + str(label_lod) + '.hdf5')
@@ -180,7 +141,7 @@ class DatasetLoader():
                         # check if batch is full
                         if image_count % self.batch_size == 0:
                             # shuffle features so a unsupervised dataset is generated
-                            if self.dataset_type == DatasetType.UNSUPERVISED:
+                            if self.dataset_type == 'unsupervised':
                                 images = np.random.shuffle(images)
 
                             # stop timer
@@ -201,7 +162,7 @@ class DatasetLoader():
             # if images are left put them also on the queue
             if len(images) != 0:
                 # shuffle features so a unsupervised dataset is generated
-                if self.dataset_type == DatasetType.UNSUPERVISED:
+                if self.dataset_type == 'unsupervised':
                     images = np.random.shuffle(images)
 
                 # put on queue
@@ -228,9 +189,9 @@ class DatasetLoader():
 
 # loads just one dataset into a tf.tensor
 class SampleLoader():
-    def __init__(self, path=None, lod = 1, batch_size=None):
+    def __init__(self, path=None, resolution=32, batch_size=20):
         self.path = path
-        self.lod = lod
+        self.resolution = resolution
 
 
         self.batch_size = batch_size
@@ -240,42 +201,34 @@ class SampleLoader():
     def set_path(self, path):
         self.path = path
 
-    def set_LOD(self, lod):
-        self.lod = lod
+    def set_resolution(self, resolution):
+        self.resolution = resolution
 
 
     ## sample loader function
-    def load_samples(self, first_image = 0, num_images = -1):
+    def load_samples(self):
         if self.path != None:
-            # create the paths for the feature and label .hdf5 files.
-            path = os.path.join(self.path, 'data', 'LOD_' + str(self.lod) + '.hdf5')
+            images = []
 
-            # change image range if there was no custom or a stupid entry made
-            if num_images <= -1:
-                num_images = inf
-
-            # load the images into numpy arrays
-            samples = load_images(path, first_image, num_images)
+            for path, subdirs, files in os.walk(self.path):
+                for name in files:
+                    images.append(cv2.imread(os.path.join(self.path, name))[:, :, [2, 1, 0]])
 
             # create tensor
-            tensor = tf.convert_to_tensor(samples)
+            resized_images = resize_images(images, self.resolution, cv2.INTER_LANCZOS4) / 255
+            tensor = tf.convert_to_tensor(resized_images)
 
             return tensor
+        else:
+            print(TColors.WARNING + 'The Sample Loader path is not specified!' + TColors.ENDC)
 
     # function which returns the size of the given dataset
     def get_dataset_size(self):
         # set lod0 as file
-        file = os.path.join(self.path, 'data', 'LOD_0.hdf5')
+        path = os.path.join(self.path)
 
-        # open .hdf5 file
-        with h5py.File(file, 'r') as hf:
-            # do try-except to stop double loop
-            image_count = 0
-            batches = hf.keys()
-
-            # iterate all batches
-            for b in batches:
-                images = hf[b].keys()
-                image_count += len(images)
+        image_count = 0
+        for path, subdirs, files in os.walk(path):
+            image_count += len(files)
 
         return image_count

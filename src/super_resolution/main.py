@@ -2,7 +2,7 @@
 
 import tensorflow as tf
 
-from utils import DatasetLoader, SampleLoader, DatasetType
+from utils import DatasetLoader, SampleLoader
 from pipeline import Trainer, Validator, Performer
 
 import presets
@@ -10,7 +10,7 @@ from utils import TColors
 
 
 ## global parameters
-EPOCHS = 5
+EPOCHS = 10
 BATCH_SIZE = 64
 BUFFER_SIZE = 1000
 
@@ -24,14 +24,14 @@ def main():
         label_lod=3,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
-        dataset_type=DatasetType.SUPERVISED,
+        dataset_type='supervised',
         dataset_size=1000
     )
 
     # create sample loader
     sample_loader = SampleLoader(
-        path='D:\\UNSPLASH Samples',
-        lod=5,
+        path='D:\\Local UNSPLASH Samples',
+        resolution=32,
         batch_size=BATCH_SIZE
     )
 
