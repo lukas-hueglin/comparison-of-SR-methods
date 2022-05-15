@@ -64,7 +64,7 @@ def save_images(path, imgs, sizes, batch_index, interpolation):
                 except ValueError:
                     print(TColors.WARNING + name + ' already exists!')
 
-
+# This class controlls the whole dataset creation process
 class DatasetCreator:
     def __init__(self, path_in, path_out, sizes=(256, 64), dataset_size=2e4,
                 interpolation = cv2.INTER_CUBIC,dataset_type='Lite', author_name='unknown'):
@@ -125,6 +125,7 @@ class DatasetCreator:
         df = pd.DataFrame(urls)
         df.to_csv(self.path_out+'\\cache.csv')
 
+    # estimates the dataset size using a fitted polynom
     def estimate_dataset_size(self):
         space = 0
         a = 2.01462e-6
@@ -162,6 +163,7 @@ class DatasetCreator:
         return number
 
     # converts the images in a folder structure to a .hdf5 file
+    # This function can be used if a older version of the DatasetCreator was used
     def make_hdf5(self, batch_range=(0, -1)):
         data_path = os.path.join(self.path_out, 'data')
         lod0_path = os.path.join(data_path, 'LOD_0')

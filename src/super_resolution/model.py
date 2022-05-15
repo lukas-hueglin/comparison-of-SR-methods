@@ -5,10 +5,8 @@
 #   - a tensorflow optimizer
 ##
 
-import os
-import sys
-
 from utils import LossRecorder, TColors
+
 
 class Model():
     def __init__(self, build_function=None, resolution=None, loss_function = None, optimizer = None):
@@ -46,6 +44,8 @@ class Model():
     def set_loss_recorder(self, loss_recorder):
         self.loss_recorder = loss_recorder
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = True
 
@@ -96,6 +96,7 @@ class Model():
 
         return self.network.name, lf_name, lr
 
+    # this function saves all class variables into a directory
     def save_variables(self):
         return {
             'weights': self.network.get_weights(),
@@ -106,6 +107,7 @@ class Model():
             'loss_recorder': self.loss_recorder
         }
 
+    # this function loads all the given values into class variables
     def load_variables(self, variables):
         self.set_resolution(variables['resolution'])
 

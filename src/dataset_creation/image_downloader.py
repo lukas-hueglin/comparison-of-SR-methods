@@ -20,12 +20,6 @@ class TColors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-# enum to return the state of a retrieved image
-class Status(Enum):
-    OK = 1 # if everything went fine
-    CRASH = 2 # if it crashed
-    REPEAT = 3 # if it timedout and it should be tried again
-
 # retrieves one image from an url. The function is made to be called through a multiprocessing job,
 # therefore it can't output anything to the command line. It returns a status, the image, and a string with print messages.
 def retrieve_image_from_url(url, max_size):
@@ -44,14 +38,14 @@ def retrieve_image_from_url(url, max_size):
         x = img[0]
 
         # OK indicates, that everything worked great
-        return (Status.OK, img, print_str)
+        return ('ok', img, print_str)
 
     # requests exeptions
     except requests.exceptions.HTTPError as e:
         print_str += (TColors.FAIL + "HTTPError: " + str(e) + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
     except requests.exceptions.Timeout as e:
         print_str += (TColors.FAIL + "Timeout: " + str(e) + '\n' + TColors.WARNING + "Note: The image will be downloaded again later, URL: " + url + TColors.ENDC)
-        return (Status.REPEAT, np.array([]))
+        return ('repeat', np.array([]))
     except requests.exceptions.TooManyRedirects as e:
         print_str += (TColors.FAIL + "TooManyRedirects: " + str(e) + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
     except requests.exceptions.RequestException as e:
@@ -62,7 +56,7 @@ def retrieve_image_from_url(url, max_size):
         print_str += (TColors.FAIL + "Something else failed!" + '\n' + TColors.WARNING + "Note: URL: " + url + TColors.ENDC)
 
     # False indicates, that the url has to be downloaded again
-    return (Status.CRASH, np.array([]), print_str)
+    return ('crash', np.array([]), print_str)
 
 # download multiple images. This function is also made to be called as a multiprocessing job,
 # that's why the images, and print messages are returned as a list instead of a return value.
@@ -73,9 +67,9 @@ def retrieve_images(urls, img_list, print_list, max_size, repeated=False):
     for url in urls:
         # retrieves one of them
         (status, img, print_str) = retrieve_image_from_url(url, max_size)
-        if status == Status.OK and True:
+        if status == 'ok' and True:
             img_list.append(img)
-        elif status == Status.REPEAT and repeated is False:
+        elif status == 'repeat' and repeated is False:
             repeated_urls.append(img)
 
         if print_str != '':

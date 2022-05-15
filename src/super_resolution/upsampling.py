@@ -7,12 +7,10 @@
 
 import tensorflow as tf
 
-import os
-import sys
-
+import numpy as np
 import matplotlib.pyplot as plt
 
-import numpy as np
+import os
 from abc import ABC, abstractmethod
 
 from utils import TColors, StatsRecorder
@@ -65,6 +63,8 @@ class Framework(ABC):
     def generate_images(self, images, check=False):
         pass
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     @abstractmethod
     def check_variables(self):
         status_ok = True
@@ -90,36 +90,22 @@ class Framework(ABC):
 
         return status_ok
 
-    # This function is used to create the ABOUT.md file and
-    # returns a string with all the information in 2 - Framework
-    @abstractmethod
-    def get_info(self, class_name=''):
-        # title
-        text = '# ' + self.name + '\n\n'
-        # get text from method
-        text += self.method.get_info()
-        # add 2 - Framework
-        text += '## 2 - Framework\n\n'
-        text += 'Framework: *' + class_name + '* </br>\n'
-        text += 'Upsample method: *' + self.upsample_function.__name__ + '*\n\n'
-        text += 'Input resolution: ' + str(self.input_res) + '*px* </br>\n'
-        text += 'Output resolution: ' + str(self.output_res) + '*px*\n\n'
-
-        return text
-
-    @abstractmethod
-    # adds the values to the StatsRecorder
-    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
-        pass
-
-    @abstractmethod
-    def plot_and_save_stats(self, path, name, train=True):
-        pass
-
+    # counts the epoch counter up one epoch
     @abstractmethod
     def add_epoch(self):
         pass
 
+    # adds the values to the StatsRecorder
+    @abstractmethod
+    def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
+        pass
+
+    # empty function for plotting all stats
+    @abstractmethod
+    def plot_and_save_stats(self, path, name, train=True):
+        pass
+
+    # plots the time
     def plot_time(self, path, name, train=True):
         if train:
             fig, ax_train = plt.subplots()
@@ -134,6 +120,7 @@ class Framework(ABC):
         # save the plot
         fig.savefig(path + '\\time.png', dpi=300, format='png')
 
+    # plots the system load
     def plot_sys_load(self, path, name, train=True):
         if train:
             fig, ax_train = plt.subplots()
@@ -158,6 +145,24 @@ class Framework(ABC):
         # save the plot
         fig.savefig(path + '\\metrics.png', dpi=300, format='png')
 
+    # This function is used to create the ABOUT.md file and
+    # returns a string with all the information in 2 - Framework
+    @abstractmethod
+    def get_info(self, class_name=''):
+        # title
+        text = '# ' + self.name + '\n\n'
+        # get text from method
+        text += self.method.get_info()
+        # add 2 - Framework
+        text += '## 2 - Framework\n\n'
+        text += 'Framework: *' + class_name + '* </br>\n'
+        text += 'Upsample method: *' + self.upsample_function.__name__ + '*\n\n'
+        text += 'Input resolution: ' + str(self.input_res) + '*px* </br>\n'
+        text += 'Output resolution: ' + str(self.output_res) + '*px*\n\n'
+
+        return text
+
+    # this function saves all class variables into a directory
     @abstractmethod
     def save_variables(self):
         return {
@@ -168,6 +173,7 @@ class Framework(ABC):
             'name': self.name
         }
 
+    # this function loads all the given values into class variables
     @abstractmethod
     def load_variables(self, variables):
         self.input_res = variables['input_res']
@@ -203,6 +209,7 @@ class PreUpsampling(Framework):
         return generated_image, loss
 
     # generates images the same way it is trained
+    # the check param is true if the function is used within the pipeline's check() function
     def generate_images(self, images, check=False):
         # check if everything is given
         if check:
@@ -213,6 +220,8 @@ class PreUpsampling(Framework):
 
         return self.method.generate_images(upsampled_images, check=check)
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = super().check_variables()
 
@@ -234,6 +243,11 @@ class PreUpsampling(Framework):
         class_name = __class__.__name__
         return super().get_info(class_name)
 
+    # counts the epoch counter up one epoch
+    def add_epoch(self):
+        self.method.add_epoch()
+        self.stats_recorder.add_epoch()
+
     # adds the values to the StatsRecorder
     def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
         # update loss
@@ -247,10 +261,6 @@ class PreUpsampling(Framework):
         # add metrics
         self.stats_recorder.add_metrics(metrics, train=train)
 
-    def add_epoch(self):
-        self.method.add_epoch()
-        self.stats_recorder.add_epoch()
-
     # plots the stats
     def plot_and_save_stats(self, path, name, train=True):
         os.makedirs(path, exist_ok=True)
@@ -263,12 +273,14 @@ class PreUpsampling(Framework):
         self.plot_sys_load(path, name, train=train)
         self.plot_metrics(path, name, train=train)
 
+    # this function saves all class variables into a directory
     def save_variables(self):
         return super().save_variables() | {
             'class': self.__class__,
             'method': self.method.save_variables()
         }
 
+    # this function loads all the given values into class variables
     def load_variables(self, variables):
         super().load_variables(variables)
 
@@ -323,6 +335,7 @@ class ProgressiveUpsampling(Framework):
         return generated_images, losses
 
     # generates images the same way it is trained
+    # the check param is true if the function is used within the pipeline's check() function
     def generate_images(self, images, check=False):
         # check if everything is given
         if check:
@@ -340,6 +353,8 @@ class ProgressiveUpsampling(Framework):
 
         return images
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = super().check_variables()
 
@@ -366,6 +381,12 @@ class ProgressiveUpsampling(Framework):
     def get_info(self, class_name=''):
         class_name = __class__.__name__
         return super().get_info(class_name)
+
+    # counts the epoch counter up one epoch
+    def add_epochs(self):
+        for method in self.methods:
+            method.add_epoch()
+        self.stats_recorder.add_epoch()
 
     # adds the values to the StatsRecorder
     def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
@@ -394,11 +415,7 @@ class ProgressiveUpsampling(Framework):
         self.plot_sys_load(path, name, train=train)
         self.plot_metrics(path, name, train=train)
 
-    def add_epochs(self):
-        for method in self.methods:
-            method.add_epoch()
-        self.stats_recorder.add_epoch()
-
+    # this function saves all class variables into a directory
     def save_variables(self):
         methods = {}
         for i in range(len(self.methods)):
@@ -412,6 +429,7 @@ class ProgressiveUpsampling(Framework):
 
         return dict | super().save_variables()
 
+    # this function loads all the given values into class variables
     def load_variables(self, variables):
         super().load_variables(variables)
 

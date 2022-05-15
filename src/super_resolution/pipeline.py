@@ -50,6 +50,7 @@ def create_gif(path):
                     image = imageio.imread(image_path)
                     writer.append_data(image)
 
+# returns the filepath with the next version index
 def get_next_version(raw_path):
     index = 2
     output_path = raw_path + '_v.' + f"{1:03d}"
@@ -68,12 +69,16 @@ class Pipeline(ABC):
         self.framework = framework
 
         self.model_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), os.pardir, os.pardir, 'models'))
-        self.output_path = get_next_version(os.path.join(self.model_path, self.framework.name))
+        if framework is not None:
+            self.output_path = get_next_version(os.path.join(self.model_path, self.framework.name))
 
     ## setter functions for the class variables.
     def set_framework(self, framework):
         self.framework = framework
+        self.output_path = get_next_version(os.path.join(self.model_path, self.framework.name))
 
+    # this function loads all the given values into class
+    # variables and writes them to a byte file with dill
     def load_framework(self, framework_path):
         self.output_path = os.path.join(self.model_path, framework_path)
 
@@ -86,6 +91,8 @@ class Pipeline(ABC):
         self.framework = variables['class']()
         self.framework.load_variables(variables)
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     @ abstractmethod
     def check_variables(self):
         # Framework
@@ -96,10 +103,13 @@ class Pipeline(ABC):
             print(TColors.NOTE + 'Framework: ' + TColors.OKGREEN + 'available')
             return True
 
+    # empty function for checking all the variables of the pipeline and the framework
+    # This functions should only be called as the first functions using the network
     @abstractmethod
     def check(self):
         pass
 
+    # checks all the variables of the framework
     def check_framework(self):
         # print 'Check Framework'
         print(TColors.HEADER + 'Check Framework:\n' + TColors.ENDC)
@@ -110,6 +120,9 @@ class Pipeline(ABC):
 
         # generate image
         self.framework.generate_images(noise, check=True)
+
+        # clear the console font
+        print(TColors.ENDC)
 
 
 class Trainer(Pipeline):
@@ -211,6 +224,19 @@ class Trainer(Pipeline):
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
 
+    # Checks the variables of the pipeline and the framework
+    # This functions should only be called as the first functions using the network
+    def check(self):
+        # print 'Check Trainer'
+        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+
+        assert(self.check_variables())
+
+        # check framework
+        super().check_framework()
+
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = super().check_variables()
 
@@ -238,20 +264,13 @@ class Trainer(Pipeline):
 
         return status_ok
 
-    def check(self):
-        # print 'Check Trainer'
-        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
-
-        assert(self.check_variables())
-
-        # check framework
-        super().check_framework()
-
+    # performes the superresolution task and returns the upsampled image
     def perform_SR(self, epoch):
         # generate images
         generated_images = self.framework.generate_images(self.sample_images)
         self.save_sample_images(generated_images, epoch)
 
+    # performes superresolution on the sample images
     def save_sample_images(self, images, epoch):
         for i in range(len(images)):
             img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
@@ -265,7 +284,7 @@ class Trainer(Pipeline):
             
             cv2.imwrite(img_path, img)
 
-        # This function is used to create the ABOUT.md file
+    # This function is used to create the ABOUT.md file
     def create_ABOUT_file(self):
         # get info from framework
         text = self.framework.get_info()
@@ -294,6 +313,7 @@ class Trainer(Pipeline):
         file.write(text)
         file.close()
 
+    # this function saves all class variables into a directory
     def save_framework(self, epoch):
         variables = self.framework.save_variables()
 
@@ -307,14 +327,13 @@ class Trainer(Pipeline):
 class Validator(Pipeline):
     def __init__(self, framework=None, dataset_loader=None):
         super().__init__(framework)
-
         self.dataset_loader = dataset_loader
 
     ## setter functions for the class variables.
     def set_dataset_loader(self, dataset_loader):
         self.dataset_loader = dataset_loader
 
-
+    # validates the neural network using the validation dataset
     def validate(self):
         # print a message
         print(TColors.HEADER + '\nValidation:\n' +TColors.ENDC)
@@ -361,6 +380,19 @@ class Validator(Pipeline):
         name = self.framework.name
         self.framework.plot_and_save_stats(plot_path, name, train=False)
 
+    # Checks the variables of the pipeline and the framework
+    # This functions should only be called as the first functions using the network
+    def check(self):
+        # print 'Check Trainer'
+        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+
+        assert(self.check_variables())
+
+        # check framework
+        super().check_framework()
+
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = super().check_variables()
 
@@ -376,24 +408,16 @@ class Validator(Pipeline):
 
         return status_ok
 
-    def check(self):
-        # print 'Check Trainer'
-        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
-
-        assert(self.check_variables())
-
-        # check framework
-        super().check_framework()
-
 
 class Performer(Pipeline):
-    def __init__(self, framework=None, sample_loader=None, output_path=None):
+    def __init__(self, framework=None, sample_loader=None):
         super().__init__(framework)
 
         self.sample_loader = sample_loader
-        self.sample_images = self.sample_loader.load_samples()
-
-        self.output_path = output_path
+        if self.sample_loader is not None:
+            self.sample_images = self.sample_loader.load_samples()
+        else:
+            self.sample_images = None
 
      ## setter functions for the class variables.
     def set_sample_loader(self, sample_loader):
@@ -403,27 +427,8 @@ class Performer(Pipeline):
     def set_output_path(self, output_path):
         self.output_path = output_path
 
-    def check_variables(self):
-        status_ok = super().check_variables()
-
-        # Sample Loader
-        if self.sample_loader is None:
-            print(TColors.NOTE + 'Sample Loader: ' + TColors.WARNING + 'not available')
-            # it's okay if it isn't specified
-        else:
-            print(TColors.NOTE + 'Sample Loader: ' + TColors.OKGREEN + 'available')
-        # Output Path
-        if self.output_path is None:
-            print(TColors.NOTE + 'Output Path: ' + TColors.WARNING + 'not available')
-            status_ok = False
-        else:
-            print(TColors.NOTE + 'Output Path: ' + TColors.OKGREEN + 'available')
-
-        # make python print normal
-        print(TColors.ENDC)
-
-        return status_ok
-
+    # Checks the variables of the pipeline and the framework
+    # This functions should only be called as the first functions using the network
     def check(self):
         # print 'Check Trainer'
         print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
@@ -433,15 +438,36 @@ class Performer(Pipeline):
         # check framework
         super().check_framework()
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
+    def check_variables(self):
+        status_ok = super().check_variables()
 
+        # Sample Loader
+        if self.sample_loader is None:
+            print(TColors.NOTE + 'Sample Loader: ' + TColors.WARNING + 'not available')
+            # it's okay if it isn't specified
+        else:
+            print(TColors.NOTE + 'Sample Loader: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
+
+    # performes the superresolution task and returns the upsampled image
     def perform_SR(self):
         # generate images
         generated_images = self.framework.generate_images(self.sample_images)
         self.save_images(generated_images)
 
+    # saves images to the output path
     def save_images(self, images):
+        dir_path = os.path.join(self.output_path, 'performer_output')
+        os.makedirs(dir_path, exist_ok=True)
+
         for i in range(len(images)):
             img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
-            path = os.path.join(self.output_path, 'image_' + f"{i:03d}" + '.jpg')
+            path = os.path.join(dir_path, 'image_' + f"{i+1:03d}" + '.jpg')
             
             cv2.imwrite(path, img)

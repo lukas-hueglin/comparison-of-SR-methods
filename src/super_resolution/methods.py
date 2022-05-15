@@ -9,9 +9,6 @@
 
 import tensorflow as tf
 
-import os
-import sys
-
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 
@@ -108,6 +105,7 @@ class AdversarialNetwork(Method):
         return generated_images, (gen_loss, disc_loss)
 
     # returns the generated image of the generator
+    # the check param is true if the function is used within the pipeline's check() function
     def generate_images(self, images, check=False):
         # check if everything is given
         if check:
@@ -121,6 +119,8 @@ class AdversarialNetwork(Method):
 
         return self.generator.network(images, training=False)
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = True
 
@@ -151,6 +151,7 @@ class AdversarialNetwork(Method):
         self.generator.loss_recorder.add_loss(gen_loss)
         self.discriminator.loss_recorder.add_loss(disc_loss)
 
+    # counts the epoch counter up one epoch
     def add_epoch(self):
         self.generator.loss_recorder.add_epoch()
         self.discriminator.loss_recorder.add_epoch()
@@ -193,6 +194,7 @@ class AdversarialNetwork(Method):
 
         return text
 
+    # this function saves all class variables into a directory
     def save_variables(self):
         return {
             'class': self.__class__,
@@ -200,6 +202,7 @@ class AdversarialNetwork(Method):
             'discriminator': self.discriminator.save_variables(),
         }
 
+    # this function loads all the given values into class variables
     def load_variables(self, variables):
         self.generator = Model()
         self.generator.load_variables(variables['generator'])
@@ -214,10 +217,9 @@ class SingleNetwork(Method):
         self.model = model
 
     # set function for the model
-    def set_network(self, model):
+    def set_model(self, model):
         self.model = model
     
-
     # The train_method(x, y) function trains
     # the model,by minimizing the loss of the predicted image.
     def train_method(self, features, labels):
@@ -237,7 +239,8 @@ class SingleNetwork(Method):
         # return loss because it can't be accessed in a @tf.function
         return generated_images, loss
 
-    # returns the generated image og the network
+    # returns the generated image of the network
+    # the check param is true if the function is used within the pipeline's check() function
     def generate_images(self, images, check=False):
         # check if everything is given
         if check:
@@ -250,6 +253,8 @@ class SingleNetwork(Method):
 
         return self.model.network(images, training=False)
 
+    # checks if all variables are specified and if the program can be ran
+    # it also prints all the results to the console 
     def check_variables(self):
         status_ok = True
 
@@ -270,6 +275,7 @@ class SingleNetwork(Method):
         # add loss
         self.model.loss_recorder.add_loss(loss)
 
+    # counts the epoch counter up one epoch
     def add_epoch(self):
         self.model.loss_recorder.add_epoch()
 
@@ -305,12 +311,14 @@ class SingleNetwork(Method):
         
         return text
 
+    # this function saves all class variables into a directory
     def save_variables(self):
         return {
             'class': self.__class__,
             'model': self.model.save_variables(),
         }
 
+    # this function loads all the given values into class variables
     def load_variables(self, variables):
         self.model = Model()
         self.model.load_variables(variables['model'])

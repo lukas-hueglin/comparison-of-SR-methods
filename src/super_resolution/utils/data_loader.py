@@ -5,16 +5,16 @@
 #   - SampleLoader: Loads just one dataset into a tf.tensor
 ##
 
-from cmath import inf
 import tensorflow as tf
 
 import multiprocessing as mp
 import time
 
+from tqdm import tqdm
+
 import os
 import numpy as np
 import h5py
-from tqdm import tqdm
 
 import cv2
 
@@ -72,7 +72,7 @@ class DatasetLoader():
         self.buffer_size = buffer_size
 
 
-    # prepare dataset_loader 
+    # prepare the loading of the images
     def prepare_loading(self, train=True):
         # start with multiprocessing
         # (with help from: https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce)
@@ -97,6 +97,7 @@ class DatasetLoader():
         self.feature_job = (feature_loader, feature_queue)
         self.label_job = (label_loader, label_queue)
 
+    # with this function the pipeline can access the images while loading
     def access_loading(self):
         # wait until batch arrives
         while True:
@@ -104,6 +105,7 @@ class DatasetLoader():
                 return (self.feature_job[1].get(), self.label_job[1].get())
             time.sleep(0.01)
 
+    # close the multiprocessing jobs
     def close_loading(self):
         self.feature_job[0].join()
         self.label_job[0].join()

@@ -64,7 +64,6 @@ LABEL_FS = 7
 class LossRecorder():
     def __init__(self):
         self.loss = []
-
         self.epochs = 1
 
     # add a new loss value to loss
@@ -74,9 +73,11 @@ class LossRecorder():
             scalar_loss = loss.numpy()
             self.loss.append(scalar_loss)
 
+    # count the epoch counter up one epoch.
     def add_epoch(self):
         self.epochs += 1
 
+    # fills the given subplots with the loss data
     def plot_loss(self, ax):
         # get y - axis
         y = self.loss
@@ -126,7 +127,7 @@ class StatsRecorder():
         self.metric_functions = metric_functions
         self.epochs = 1
 
-    # add a new time to times
+    # add a new time
     def add_time(self, time, train=True):
         data_pack = self.training if train else self.validation
 
@@ -141,7 +142,7 @@ class StatsRecorder():
             if t_time is not None:
                 data_pack['network_time'].append(t_time)
 
-    # add a new load value to loads
+    # add a new load value
     def add_sys_load(self, sys_load, train=True):
         data_pack = self.training if train else self.validation
 
@@ -156,7 +157,7 @@ class StatsRecorder():
             if gpu_load is not None:
                 data_pack['gpu_load'].append(gpu_load)
 
-    # add a new metric value to loads
+    # add a new metric value
     def add_metrics(self, metrics, train=True):
         data_pack = self.training if train else self.validation
 
@@ -165,9 +166,11 @@ class StatsRecorder():
             for i in range(len(data_pack['metrics'])):
                 data_pack['metrics'][i].append(self.metric_functions[i](y_pred, y_true))
 
+    # count the epoch counter up one epoch.
     def add_epoch(self):
         self.epochs += 1
 
+    # fills the given subplots with the time data
     def plot_time(self, ax_train, ax_validation, train=True):
         ## training data
         # make x - axis
@@ -207,6 +210,7 @@ class StatsRecorder():
 
             ax_validation.legend(loc='best', fontsize=LABEL_FS)
 
+    # fills the given subplots with the system load data
     def plot_sys_load(self, ax_train, ax_validation, train=True):
         ## training data
         # make x - axis
@@ -243,6 +247,7 @@ class StatsRecorder():
             ax_validation.plot(x_validation, self.validation['ram_load'], linewidth=PRIMARY_LW, color='tab:blue', label='ram load')
             ax_validation.plot(x_validation, self.validation['gpu_load'], linewidth=PRIMARY_LW, color='tab:green', label='gpu load')
 
+    # fills the given subplots with the metric data
     def plot_metrics(self, axs, train=True):
         for i in range(len(self.metric_functions)):
             ## training data

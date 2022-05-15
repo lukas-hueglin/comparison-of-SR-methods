@@ -10,6 +10,9 @@ from utils import TColors
 
 
 ## global parameters
+MODE = 'training'
+
+
 EPOCHS = 10
 BATCH_SIZE = 64
 BUFFER_SIZE = 1000
@@ -35,22 +38,56 @@ def main():
         batch_size=BATCH_SIZE
     )
 
-    # create pipeline
-    pipeline = Trainer(
-        framework=presets.build_SRDemo(),
-        epochs=EPOCHS,
-        dataset_loader=dataset_loader,
+    # choose the mode
+    if MODE == 'training':
+        # create pipeline
+        pipeline = Trainer(
+            framework=presets.build_SRDemo(),
+            epochs=EPOCHS,
+            dataset_loader=dataset_loader,
+            
+            # if you don't have sample images or don't need it just set it None
+            sample_loader=sample_loader
+        )
+
+        # check the variables of pipeline
+        pipeline.check()
+
+        # train
+        pipeline.train()
+
+    elif MODE == 'validation':
+        # create pipeline
+        pipeline = Validator(
+            dataset_loader=dataset_loader
+        )
+
+        # load a pretrained framework
+        pipeline.load_framework('SRDemo_v.012')
+
+        # check the variables of pipeline
+        pipeline.check()
+
+        # train
+        pipeline.validate()
         
-        # if you don't have sample images or don't need it just set it None
-        sample_loader=sample_loader
-    )
+    elif MODE == 'perform':
+        # create pipeline
+        pipeline = Performer(
+            sample_loader=sample_loader
+        )
 
-    pipeline.check()
+        # load a pretrained framework
+        pipeline.load_framework('SRDemo_v.012')
 
-    #pipeline.load_framework('SRDemo_v.004')
+        # check the variables of pipeline
+        pipeline.check()
 
-    # train
-    pipeline.train()
+        # perform superresolution
+        pipeline.perform_SR()
+        
+    else:
+        print(TColors.WARNING + 'This Mode does not exist!' + TColors.ENDC)
 
 
 
