@@ -8,6 +8,8 @@
 import tensorflow as tf
 
 import os
+import sys
+
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -42,33 +44,16 @@ class Framework(ABC):
         # The name of the "algorithm" used for saving the models.
         self.name = name
 
-        # REMINDER: the method itself is only specified in the child classes
-
-        self.check_resolution()
-
     ## setter functions for the class variables
     def set_resolutions(self, input_res, output_res):
         self.input_res = input_res
         self.output_res = output_res
-        self.check_resolution()
 
     def set_stats_recorder(self, stats_recorder):
         self.stats_recorder = stats_recorder
 
     def set_upsample_function(self, upsample_function):
         self.upsample_function = upsample_function
-    
-    # This functions checks if the resolutions are all a power of 2
-    def check_resolution(self):
-        if self.input_res is not None and self.output_res is not None:
-            # make it a float so the is_integer functions is accessible
-            q = float(np.log2(self.output_res/self.input_res))
-
-            if q.is_integer() is False:
-                print(TColors.WARNING + 'The input and output resolutions are not a power of 2!' + TColors.ENDC)
-
-        else:
-            print(TColors.WARNING + 'The resolutions are not specified!' + TColors.ENDC)
 
     # empty function for a training step
     @abstractmethod
@@ -77,8 +62,33 @@ class Framework(ABC):
 
     # empty function to generate images
     @abstractmethod
-    def generate_images(self, images):
+    def generate_images(self, images, check=False):
         pass
+
+    @abstractmethod
+    def check_variables(self):
+        status_ok = True
+
+        # Input Resolution
+        if self.input_res is None:
+            print(TColors.NOTE + 'Input Resolution: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Input Resolution: ' + TColors.OKGREEN + 'available')
+        # Output Resolution
+        if self.output_res is None:
+            print(TColors.NOTE + 'Output Resolution: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Output Resolution: ' + TColors.OKGREEN + 'available')
+        # Upsample Function
+        if self.upsample_function is None:
+            print(TColors.NOTE + 'Updample Function: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Updample Function: ' + TColors.OKGREEN + 'available')
+
+        return status_ok
 
     # This function is used to create the ABOUT.md file and
     # returns a string with all the information in 2 - Framework
@@ -116,6 +126,7 @@ class Framework(ABC):
             ax_validation = None
         else:
             fig, (ax_train, ax_validation) = plt.subplots(2)
+            fig.tight_layout(pad=3.0)
 
         fig.suptitle(name)
         self.stats_recorder.plot_time(ax_train, ax_validation, train=train)
@@ -129,6 +140,7 @@ class Framework(ABC):
             ax_validation = None
         else:
             fig, (ax_train, ax_validation) = plt.subplots(2)
+            fig.tight_layout(pad=3.0)
 
         fig.suptitle(name)
         self.stats_recorder.plot_sys_load(ax_train, ax_validation, train=train)
@@ -191,11 +203,30 @@ class PreUpsampling(Framework):
         return generated_image, loss
 
     # generates images the same way it is trained
-    def generate_images(self, images):
+    def generate_images(self, images, check=False):
+        # check if everything is given
+        if check:
+            assert(self.check_variables())
+        
         # get the prediction of the network
         upsampled_images = self.upsample_function(images, self.output_res)
 
-        return self.method.generate_images(upsampled_images)
+        return self.method.generate_images(upsampled_images, check=check)
+
+    def check_variables(self):
+        status_ok = super().check_variables()
+
+        # Method
+        if self.method is None:
+            print(TColors.NOTE + 'Method: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Method: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
 
     # This function is used to create the ABOUT.md file and
     # returns a string with all the information in 2 - Framework
@@ -261,18 +292,6 @@ class ProgressiveUpsampling(Framework):
     def set_steps(self, steps):
         self.steps = steps
         self.methods = [self.methods[0]] * self.steps
-        self.check_resolution()
-
-    # This functions overridden function checks also if the steps are correct
-    def check_resolution(self):
-        if self.methods != None:
-            q = super().check_resolution()
-
-            if self.steps != q-1 or len(self.methods) != self.steps:
-                print(TColors.WARNING + 'The steps do not match!' + TColors.ENDC)
-
-        else:
-            print(TColors.WARNING + 'The methods are not specified!' + TColors.ENDC)
 
 
     # This is the training step function. The labels
@@ -304,7 +323,11 @@ class ProgressiveUpsampling(Framework):
         return generated_images, losses
 
     # generates images the same way it is trained
-    def generate_images(self, images):
+    def generate_images(self, images, check=False):
+        # check if everything is given
+        if check:
+            assert(self.check_variables())
+
         # there are self.steps loops
         for i in range(self.steps):
             
@@ -313,9 +336,30 @@ class ProgressiveUpsampling(Framework):
             upsampled_images = self.upsample_function(images, res)
 
             # get prediction of the network
-            images = self.method[i].generate_images(upsampled_images)
+            images = self.method[i].generate_images(upsampled_images, check=check)
 
         return images
+
+    def check_variables(self):
+        status_ok = super().check_variables()
+
+        # Methods
+        if self.methods is None:
+            print(TColors.NOTE + 'Methods: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Methods: ' + TColors.OKGREEN + 'available')
+        # Steps
+        if self.steps is None:
+            print(TColors.NOTE + 'Steps: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Steps: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
 
     # This function is used to create the ABOUT.md file and
     # returns a string with all the information in 2 - Framework

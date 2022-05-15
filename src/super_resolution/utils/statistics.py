@@ -65,7 +65,7 @@ class LossRecorder():
     def __init__(self):
         self.loss = []
 
-        self.epochs = 0
+        self.epochs = 1
 
     # add a new loss value to loss
     def add_loss(self, loss):
@@ -124,7 +124,7 @@ class StatsRecorder():
         }
 
         self.metric_functions = metric_functions
-        self.epochs = 0
+        self.epochs = 1
 
     # add a new time to times
     def add_time(self, time, train=True):
@@ -179,7 +179,6 @@ class StatsRecorder():
         # set labels
         ax_train.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
         ax_train.set_ylabel('Time (s)', fontsize=AX_LABEL_FS)
-        ax_train.label_outer()
 
         # plot
         ax_train.plot(x_train, self.training['feature_load_time'], linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
@@ -198,9 +197,8 @@ class StatsRecorder():
 
             # set labels
 
-            ax_validation.set_xlabel('Batches', fontsize=AX_LABEL_FS)
+            ax_validation.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
             ax_validation.set_ylabel('Time (s)', fontsize=AX_LABEL_FS)
-            ax_validation.label_outer()
 
             # plot
             ax_validation.plot(x_validation, self.validation['feature_load_time'], linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
@@ -220,7 +218,6 @@ class StatsRecorder():
         # set labels
         ax_train.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
         ax_train.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
-        ax_train.label_outer()
 
         # plot
         ax_train.plot(x_train, self.training['cpu_load'], linewidth=PRIMARY_LW, color='tab:orange', label='cpu load')
@@ -238,9 +235,8 @@ class StatsRecorder():
             ax_validation.title.set_text('Validation')
             
             # set labels
-            ax_validation.set_xlabel('Batches', fontsize=AX_LABEL_FS)
+            ax_validation.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
             ax_validation.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
-            ax_validation.label_outer()
 
             # plot
             ax_validation.plot(x_validation, self.validation['cpu_load'], linewidth=PRIMARY_LW, color='tab:orange', label='cpu load')
@@ -281,5 +277,5 @@ class StatsRecorder():
                 y_validation_avg = np.mean(self.validation['metrics'][i])
 
                 #plot
-                axs[i].hlines(y_validation_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='blue', label='validation average')
+                axs[i].hlines(y_validation_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='darkred', label='validation average')
 

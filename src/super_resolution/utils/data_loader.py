@@ -40,7 +40,7 @@ def load_images(path, first_image = 0, num_images = -1, silent=False):
 
         # print message
         if not silent:
-            print(TColors.OKBLUE + 'Loading images from ' + path + ':\n' + TColors.ENDC)
+            print(TColors.OKBLUE + '\nLoading images from ' + path + ':\n' + TColors.ENDC)
         
         # open .hdf5 file
         with h5py.File(path, 'r') as hf:

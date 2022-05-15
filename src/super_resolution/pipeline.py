@@ -4,7 +4,6 @@
 ##
 
 import tensorflow as tf
-import multiprocessing as mp
 
 import os
 import datetime
@@ -21,7 +20,7 @@ import GPUtil
 import numpy as np
 from tqdm import tqdm
 
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from utils import TColors
 
@@ -60,29 +59,7 @@ def get_next_version(raw_path):
         output_path = raw_path + '_v.' f"{index:03d}"
         index += 1
 
-    # create this folder
-    os.makedirs(output_path, exist_ok=True)
-
     return output_path
-
-# this function is called as a parallel worker and puts
-# the average cpu, ram and gpu load on the given queue
-# (It isn't used at the moment, because it isn't working yet.)
-def check_sys_load(cpu_load, ram_load, gpu_load):
-    while True:
-        # get cpu load
-        cpu_load.append(psutil.cpu_percent(interval=None, percpu=False))
-
-        # get ram load
-        ram_load.append(psutil.virtual_memory().percent)
-
-        # get gpu load
-        gpus = GPUtil.getGPUs()
-        for gpu in gpus:
-            gpu_load.append(gpu.load * 100)
-
-        #time.sleep(0.01)
-
 
 
 ## Pipeline class ##
@@ -97,16 +74,42 @@ class Pipeline(ABC):
     def set_framework(self, framework):
         self.framework = framework
 
-
     def load_framework(self, framework_path):
         self.output_path = os.path.join(self.model_path, framework_path)
-        file_path = os.path.join(self.output_path,'checkpoints', 'saved.ckpt')
+
+        dir_path = os.path.join(self.output_path,'checkpoints')
+        file_path = os.path.join(dir_path, os.listdir(dir_path)[-1])
 
         with open(file_path, 'rb') as file:
             variables = dill.load(file)
 
         self.framework = variables['class']()
         self.framework.load_variables(variables)
+
+    @ abstractmethod
+    def check_variables(self):
+        # Framework
+        if self.framework is None:
+            print(TColors.NOTE + 'Framework: ' + TColors.FAIL + 'not available')
+            return False
+        else:
+            print(TColors.NOTE + 'Framework: ' + TColors.OKGREEN + 'available')
+            return True
+
+    @abstractmethod
+    def check(self):
+        pass
+
+    def check_framework(self):
+        # print 'Check Framework'
+        print(TColors.HEADER + 'Check Framework:\n' + TColors.ENDC)
+
+        # generate noise
+        res = self.framework.input_res
+        noise = tf.random.normal([1, res, res, 3])
+
+        # generate image
+        self.framework.generate_images(noise, check=True)
 
 
 class Trainer(Pipeline):
@@ -116,7 +119,10 @@ class Trainer(Pipeline):
         self.dataset_loader = dataset_loader
 
         self.sample_loader = sample_loader
-        self.sample_images = self.sample_loader.load_samples()
+        if self.sample_loader is not None:
+            self.sample_images = self.sample_loader.load_samples()
+        else:
+            self.sample_images = None
 
         self.epochs = epochs
 
@@ -187,6 +193,9 @@ class Trainer(Pipeline):
                 # add a epoch to the stats recorders
                 self.framework.add_epoch()
 
+                # save checkpoint
+                self.save_framework(epoch)
+
             # plot stats
             plot_path = os.path.join(self.output_path, 'statistics')
             name = self.framework.name
@@ -199,11 +208,44 @@ class Trainer(Pipeline):
             # make ABOUT.md file
             self.create_ABOUT_file()
 
-            # save framework
-            self.save_framework()
-
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
+
+    def check_variables(self):
+        status_ok = super().check_variables()
+
+        # Dataset Loader
+        if self.dataset_loader is None:
+            print(TColors.NOTE + 'Dataset Loader: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Dataset Loader: ' + TColors.OKGREEN + 'available')
+        # Sample Loader
+        if self.sample_loader is None:
+            print(TColors.NOTE + 'Sample Loader: ' + TColors.WARNING + 'not available')
+            # it's okay if it isn't specified
+        else:
+            print(TColors.NOTE + 'Sample Loader: ' + TColors.OKGREEN + 'available')
+        # Epochs
+        if self.epochs == 1:
+            print(TColors.NOTE + 'Epochs: ' + TColors.WARNING + 'is 1')
+            # it's okay if it isn't specified
+        else:
+            print(TColors.NOTE + 'Epochs: ' + TColors.OKGREEN + 'is ' + str(self.epochs))
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
+
+    def check(self):
+        # print 'Check Trainer'
+        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+
+        assert(self.check_variables())
+
+        # check framework
+        super().check_framework()
 
     def perform_SR(self, epoch):
         # generate images
@@ -215,7 +257,7 @@ class Trainer(Pipeline):
             img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
 
             # make paths
-            dir_path = os.path.join(self.output_path, 'progress_images', 'image_' + f"{i:02d}")
+            dir_path = os.path.join(self.output_path, 'progress_images', 'image_' + f"{i+1:02d}")
             img_path = os.path.join(dir_path, 'epoch_' + f"{epoch:03d}" + '.jpg')
 
             # make a new folder
@@ -252,13 +294,13 @@ class Trainer(Pipeline):
         file.write(text)
         file.close()
 
-    def save_framework(self):
+    def save_framework(self, epoch):
         variables = self.framework.save_variables()
 
         ckpt_path = os.path.join(self.output_path, 'checkpoints')
         os.makedirs(ckpt_path, exist_ok=True)
 
-        file_path = os.path.join(ckpt_path, 'saved.ckpt')
+        file_path = os.path.join(ckpt_path, 'epoch_' + f"{epoch:02d}" + '.ckpt')
         with open(file_path, 'wb') as file:
             dill.dump(variables, file)
     
@@ -319,6 +361,30 @@ class Validator(Pipeline):
         name = self.framework.name
         self.framework.plot_and_save_stats(plot_path, name, train=False)
 
+    def check_variables(self):
+        status_ok = super().check_variables()
+
+        # Dataset Loader
+        if self.dataset_loader is None:
+            print(TColors.NOTE + 'Dataset Loader: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Dataset Loader: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
+
+    def check(self):
+        # print 'Check Trainer'
+        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+
+        assert(self.check_variables())
+
+        # check framework
+        super().check_framework()
+
 
 class Performer(Pipeline):
     def __init__(self, framework=None, sample_loader=None, output_path=None):
@@ -336,6 +402,36 @@ class Performer(Pipeline):
 
     def set_output_path(self, output_path):
         self.output_path = output_path
+
+    def check_variables(self):
+        status_ok = super().check_variables()
+
+        # Sample Loader
+        if self.sample_loader is None:
+            print(TColors.NOTE + 'Sample Loader: ' + TColors.WARNING + 'not available')
+            # it's okay if it isn't specified
+        else:
+            print(TColors.NOTE + 'Sample Loader: ' + TColors.OKGREEN + 'available')
+        # Output Path
+        if self.output_path is None:
+            print(TColors.NOTE + 'Output Path: ' + TColors.WARNING + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Output Path: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
+
+    def check(self):
+        # print 'Check Trainer'
+        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+
+        assert(self.check_variables())
+
+        # check framework
+        super().check_framework()
 
 
     def perform_SR(self):

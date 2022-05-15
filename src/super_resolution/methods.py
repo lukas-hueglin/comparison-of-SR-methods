@@ -9,10 +9,14 @@
 
 import tensorflow as tf
 
+import os
+import sys
+
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 
 from model import Model
+from utils import TColors
 
 
 # Abstract Method class. It is practically empty and just
@@ -26,8 +30,12 @@ class Method(ABC):
         return labels
 
     @abstractmethod
-    def generate_images(self, images):
+    def generate_images(self, images, check=False):
         return images
+
+    @abstractmethod
+    def check_variables(self, verbose=False):
+        pass
 
     @abstractmethod
     def add_loss(self, loss):
@@ -100,9 +108,39 @@ class AdversarialNetwork(Method):
         return generated_images, (gen_loss, disc_loss)
 
     # returns the generated image of the generator
-    def generate_images(self, images):
+    def generate_images(self, images, check=False):
+        # check if everything is given
+        if check:
+            assert(self.check_variables())
+            assert(self.generator.check_variables())
+            assert(self.discriminator.check_variables())
+
+        # the first time tensorflow generated a output the cuDNN library gets loaded
+        if check:
+            print(TColors.OKGREEN + 'NVIDIA cuDNN' + TColors.NOTE + ' Version:')
+
         return self.generator.network(images, training=False)
 
+    def check_variables(self):
+        status_ok = True
+
+        # Generator
+        if self.generator is None:
+            print(TColors.NOTE + 'Generator: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Generator: ' + TColors.OKGREEN + 'available')
+        # Discriminator
+        if self.discriminator is None:
+            print(TColors.NOTE + 'Discriminator: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Discriminator: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+
+        return status_ok
 
     # adds the values to the StatsRecorder
     def add_loss(self, loss):
@@ -113,9 +151,9 @@ class AdversarialNetwork(Method):
         self.generator.loss_recorder.add_loss(gen_loss)
         self.discriminator.loss_recorder.add_loss(disc_loss)
 
-    def add_loss(self):
+    def add_epoch(self):
         self.generator.loss_recorder.add_epoch()
-        self.discriminator.loss_function.add_epoch()
+        self.discriminator.loss_recorder.add_epoch()
 
     # plots the loss
     def plot_loss(self, path, name):
@@ -200,9 +238,32 @@ class SingleNetwork(Method):
         return generated_images, loss
 
     # returns the generated image og the network
-    def generate_images(self, images):
+    def generate_images(self, images, check=False):
+        # check if everything is given
+        if check:
+            assert(self.check_variables())
+            assert(self.model.check_variables())
+
+        # the first time tensorflow generated a output the cuDNN library gets loaded
+        if check:
+            print(TColors.OKGREEN + 'NVIDIA cuDNN' + TColors.NOTE + ' Version:')
+
         return self.model.network(images, training=False)
 
+    def check_variables(self):
+        status_ok = True
+
+        # Model
+        if self.model is None:
+            print(TColors.NOTE + 'Model: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Model: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+        
+        return status_ok
 
     # adds the values to the StatsRecorder
     def add_loss(self, loss):

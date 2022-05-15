@@ -6,6 +6,7 @@
 # colors for terminal output
 class TColors:
     HEADER = '\033[95m'
+    NOTE = '\033[90m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'
     OKGREEN = '\033[92m'

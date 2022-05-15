@@ -2,12 +2,11 @@
 
 import tensorflow as tf
 
-import time
-
 from utils import DatasetLoader, SampleLoader, DatasetType
 from pipeline import Trainer, Validator, Performer
 
 import presets
+from utils import TColors
 
 
 ## global parameters
@@ -37,25 +36,29 @@ def main():
     )
 
     # create pipeline
-    pipeline = Validator(
+    pipeline = Trainer(
         framework=presets.build_SRDemo(),
-        #epochs=EPOCHS,
-        dataset_loader=dataset_loader
+        epochs=EPOCHS,
+        dataset_loader=dataset_loader,
         
         # if you don't have sample images or don't need it just set it None
-        #sample_loader=sample_loader
+        sample_loader=sample_loader
     )
 
-    pipeline.load_framework('C:\\Users\\lukas\\source\\repos\\comparison-of-SR-methods\\models\\SRDemo_v.001')
+    pipeline.check()
+
+    #pipeline.load_framework('SRDemo_v.004')
 
     # train
-    pipeline.validate()
+    pipeline.train()
 
 
 
 ## main function call ##
 if __name__ == '__main__':
     # tensorflow settings
+    print(TColors.FAIL + '\nTensorflow' + TColors.NOTE + ' Initialisation:')
+
     GPUs = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(GPUs[0], True)
 

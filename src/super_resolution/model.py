@@ -5,13 +5,17 @@
 #   - a tensorflow optimizer
 ##
 
-from utils import StatsRecorder, LossRecorder
+import os
+import sys
+
+from utils import LossRecorder, TColors
 
 class Model():
     def __init__(self, build_function=None, resolution=None, loss_function = None, optimizer = None):
         super().__init__()
         self.resolution = resolution
 
+        self.network = None
         if build_function is not None:
             self.network = build_function(self.resolution)
         self.build_function = build_function
@@ -39,11 +43,47 @@ class Model():
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
 
-    def set_metric(self, metric):
-        self.loss_recoder.metric_function = metric
-
     def set_loss_recorder(self, loss_recorder):
         self.loss_recorder = loss_recorder
+
+    def check_variables(self):
+        status_ok = True
+
+        # Build Function
+        if self.build_function is None:
+            print(TColors.NOTE + 'Build Function: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Build Function: ' + TColors.OKGREEN + 'available')
+        # Network
+        if self.network is None:
+            print(TColors.NOTE + 'Network: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Network: ' + TColors.OKGREEN + 'available')
+        # Resolution
+        if self.resolution is None:
+            print(TColors.NOTE + 'Resolution: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Resolution: ' + TColors.OKGREEN + 'available')
+        # Loss Function
+        if self.loss_function is None:
+            print(TColors.NOTE + 'Loss Function: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Loss Function: ' + TColors.OKGREEN + 'available')
+        # Optimizer
+        if self.optimizer is None:
+            print(TColors.NOTE + 'Optimizer: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Optimizer: ' + TColors.OKGREEN + 'available')
+
+        # make python print normal
+        print(TColors.ENDC)
+        
+        return status_ok
 
     # This function is used to create the ABOUT.md file it returns the network name
     def get_info(self):
