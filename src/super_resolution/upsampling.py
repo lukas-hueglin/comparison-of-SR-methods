@@ -55,7 +55,7 @@ class Framework(ABC):
 
     # empty function for a training step
     @abstractmethod
-    def train_step(self, feature, label):
+    def train_step(self, feature, label, train=True):
         pass
 
     # empty function to generate images
@@ -199,12 +199,12 @@ class PreUpsampling(Framework):
     # This is the training step function. The labels
     # get scaled up first and are sent to the network later
     @tf.function
-    def train_step(self, features, labels):
+    def train_step(self, features, labels, train=True):
         # upsampling the image
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        generated_image, loss = self.method.train_method(upsampled_features, labels)
+        generated_image, loss = self.method.train_method(upsampled_features, labels, train=train)
 
         return generated_image, loss
 
@@ -309,7 +309,7 @@ class ProgressiveUpsampling(Framework):
     # This is the training step function. The labels
     # get scaled up and sent to the network self.step times.
     @tf.function
-    def train_step(self, features, labels):
+    def train_step(self, features, labels, train=True):
         generated_images = []
         losses = []
         # there are self.steps loops

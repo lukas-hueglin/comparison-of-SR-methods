@@ -63,7 +63,7 @@ def main():
         )
 
         # load a pretrained framework
-        pipeline.load_framework('SRDemo_v.012')
+        pipeline.load_framework('SRDemo_v.001')
 
         # check the variables of pipeline
         pipeline.check()

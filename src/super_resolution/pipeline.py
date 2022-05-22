@@ -349,7 +349,7 @@ class Validator(Pipeline):
 
             # train
             now = time.perf_counter()
-            generated_images, loss = self.framework.train_step(features, labels)
+            generated_images, loss = self.framework.train_step(features, labels, train=False)
 
             # stop timer
             network_time = time.perf_counter() - now

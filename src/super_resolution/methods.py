@@ -23,7 +23,7 @@ class Method(ABC):
         super().__init__()
 
     @abstractmethod
-    def train_method(self, features, labels):
+    def train_method(self, features, labels, train=True):
         return labels
 
     @abstractmethod
@@ -77,17 +77,17 @@ class AdversarialNetwork(Method):
     # The train_method(x, y) function trains the generator
     # and the discriminator with the typical GAN procedure.
     # (from the tensorflow documentation: https://www.tensorflow.org/tutorials/generative/dcgan)
-    def train_method(self, features, labels):
+    def train_method(self, features, labels, train=True):
         # The GradientTapes watch the transformation of the network parameters
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
 
             # predition by the generator
-            generated_images = self.generator.network(features, training=True)
+            generated_images = self.generator.network(features, training=train)
 
             # prediction by the discriminator given a real image
             # (real_output) and given the generated image of the generator
-            real_output = self.discriminator.network(labels, training=True)
-            fake_output = self.discriminator.network(generated_images, training=True)
+            real_output = self.discriminator.network(labels, training=train)
+            fake_output = self.discriminator.network(generated_images, training=train)
 
             # calculate the loss
             gen_loss = self.generator.loss_function(labels, generated_images, fake_output)
@@ -222,12 +222,12 @@ class SingleNetwork(Method):
     
     # The train_method(x, y) function trains
     # the model,by minimizing the loss of the predicted image.
-    def train_method(self, features, labels):
+    def train_method(self, features, labels, train=True):
         # The GradientTape watches the transformation of the network parameters
         with tf.GradientTape() as tape:
 
             # prediction by the network of the model
-            generated_images = self.model.network(features, training=True)
+            generated_images = self.model.network(features, training=train)
 
             # calculate the loss
             loss = self.model.loss_function(labels, generated_images)
