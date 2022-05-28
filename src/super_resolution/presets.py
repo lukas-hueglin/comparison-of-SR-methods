@@ -14,14 +14,14 @@ import upsampling, methods
 
 # This function builds the unsupervised SRGAN framework
 def build_SRGAN():
-    INPUT_RES = 128
-    OUTPUT_RES = 512
+    INPUT_RES = 32
+    OUTPUT_RES = 128
 
     # build generator
     generator = Model(
         build_function=arch.make_SRResNet,
         resolution=INPUT_RES,
-        loss_function=lf.SRGAN_loss,
+        loss_function=lf.build_SRGAN_loss(OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
@@ -29,7 +29,7 @@ def build_SRGAN():
     discriminator = Model(
         build_function=arch.make_SRGAN_disc,
         resolution=OUTPUT_RES,
-        loss_function=lf.disc_loss,
+        loss_function=lf.build_disc_loss(),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
@@ -60,7 +60,7 @@ def build_SRResNet():
     model = Model(
         build_function=arch.make_SRResNet,
         resolution=OUTPUT_RES,
-        loss_function=lf.SRGAN_loss,
+        loss_function=lf.build_SRGAN_loss(OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
@@ -89,7 +89,7 @@ def build_SRDemo():
     model = Model(
         build_function=arch.make_Demo,
         resolution=OUTPUT_RES,
-        loss_function=lf.MSE_loss,
+        loss_function=lf.build_MSE_loss(),
         optimizer=tf.keras.optimizers.Adam(1e-4),
     )
 

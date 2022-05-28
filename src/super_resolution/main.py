@@ -13,8 +13,8 @@ from utils import TColors
 MODE = 'training'
 
 
-EPOCHS = 20
-BATCH_SIZE = 2
+EPOCHS = 10
+BATCH_SIZE = 64
 BUFFER_SIZE = 1000
 
 ## main function
@@ -23,8 +23,8 @@ def main():
     # create dataset loader
     dataset_loader = DatasetLoader(
         path='D:\\Local UNSPLASH Dataset Full',
-        feature_lod=3,
-        label_lod=1,
+        feature_lod=5,
+        label_lod=3,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
         dataset_type='supervised',
@@ -34,7 +34,7 @@ def main():
     # create sample loader
     sample_loader = SampleLoader(
         path='D:\\Local UNSPLASH Samples',
-        resolution=128,
+        resolution=32,
         batch_size=BATCH_SIZE
     )
 
@@ -49,9 +49,6 @@ def main():
             # if you don't have sample images or don't need it just set it None
             sample_loader=sample_loader
         )
-
-         # load a pretrained framework
-        pipeline.load_framework('SRGAN_v.002')
 
         # check the variables of pipeline
         pipeline.check()
@@ -99,7 +96,7 @@ if __name__ == '__main__':
     # tensorflow settings
     print(TColors.FAIL + '\nTensorflow' + TColors.NOTE + ' Initialisation:')
 
-    #GPUs = tf.config.list_physical_devices('GPU')
-    #tf.config.experimental.set_memory_growth(GPUs[0], True)
+    GPUs = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(GPUs[0], True)
 
     main()

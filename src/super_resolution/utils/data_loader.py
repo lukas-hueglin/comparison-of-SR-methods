@@ -150,7 +150,7 @@ class DatasetLoader():
                             now = time.perf_counter()
 
                             # put on queue
-                            queue.put((images,now-timer))
+                            queue.put((images,now-timer), block=True, timeout=None)
 
                             timer = now
                             images = []
