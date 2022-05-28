@@ -26,6 +26,8 @@ def bilinear(img, res):
 def lanczos(img, res):
     return tf.image.resize(img, (res, res), method=tf.image.ResizeMethod.LANCZOS3)
 
+def none(img, res):
+    return img
 
 ## Framework classes ##
 class Framework(ABC):

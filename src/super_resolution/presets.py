@@ -14,13 +14,13 @@ import upsampling, methods
 
 # This function builds the unsupervised SRGAN framework
 def build_SRGAN():
-    INPUT_RES = 32
+    INPUT_RES = 128
     OUTPUT_RES = 512
 
     # build generator
     generator = Model(
         build_function=arch.make_SRResNet,
-        resolution=OUTPUT_RES,
+        resolution=INPUT_RES,
         loss_function=lf.SRGAN_loss,
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
@@ -43,7 +43,7 @@ def build_SRGAN():
     framework = upsampling.PreUpsampling(
         input_res=INPUT_RES,
         output_res=OUTPUT_RES,
-        upsample_function=upsampling.bicubic,
+        upsample_function=upsampling.none,
         method=method,
         metric_functions=[stats.PSNR_metric, stats.SSIM_metric],
         name = 'SRGAN'

@@ -12,6 +12,7 @@ from .methods import SingleNetwork
 from .upsampling import bicubic
 from .upsampling import bilinear
 from .upsampling import lanczos
+from .upsampling import none
 
 # All the Frameworks
 from .upsampling import Framework

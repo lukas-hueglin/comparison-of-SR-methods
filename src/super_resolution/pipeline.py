@@ -171,6 +171,10 @@ class Trainer(Pipeline):
                     # get data to train
                     (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
 
+                    # convert to tensors
+                    features = tf.convert_to_tensor(features)
+                    labels = tf.convert_to_tensor(labels)
+
                     # train
                     now = time.perf_counter()
                     generated_images, loss = self.framework.train_step(features, labels)
