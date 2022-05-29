@@ -19,17 +19,17 @@ def build_SRGAN():
 
     # build generator
     generator = Model(
-        build_function=arch.make_SRResNet,
-        resolution=INPUT_RES,
-        loss_function=lf.build_SRGAN_loss(OUTPUT_RES),
+        arch_build_function=arch.make_SRResNet,
+        loss_build_function=lf.build_SRGAN_loss,
+        resolutions=(INPUT_RES, OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
     # build discriminator
     discriminator = Model(
-        build_function=arch.make_SRGAN_disc,
-        resolution=OUTPUT_RES,
-        loss_function=lf.build_disc_loss(),
+        arch_build_function=arch.make_SRGAN_disc,
+        loss_build_function=lf.build_disc_loss,
+        resolutions=(OUTPUT_RES, OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
@@ -58,9 +58,9 @@ def build_SRResNet():
 
     # build the model
     model = Model(
-        build_function=arch.make_SRResNet,
-        resolution=OUTPUT_RES,
-        loss_function=lf.build_SRGAN_loss(OUTPUT_RES),
+        arch_build_function=arch.make_SRResNet,
+        loss_build_function=lf.build_SRGAN_loss,
+        resolutions=(INPUT_RES, OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
 
@@ -87,9 +87,9 @@ def build_SRDemo():
 
     #builds the model
     model = Model(
-        build_function=arch.make_Demo,
-        resolution=OUTPUT_RES,
-        loss_function=lf.build_MSE_loss(),
+        arch_build_function=arch.make_Demo,
+        loss_build_function=lf.build_MSE_loss,
+        resolutions=(OUTPUT_RES, OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4),
     )
 

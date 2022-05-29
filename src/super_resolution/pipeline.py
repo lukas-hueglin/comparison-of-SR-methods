@@ -211,7 +211,8 @@ class Trainer(Pipeline):
                 self.framework.add_epoch()
 
                 # save checkpoint
-                self.save_framework(epoch)
+                if epoch % 10 == 0 or epoch == self.epochs + start_epoch - 1:
+                    self.save_framework(epoch)
 
             # plot stats
             plot_path = os.path.join(self.output_path, 'statistics')
@@ -304,13 +305,17 @@ class Trainer(Pipeline):
         text += 'Dataset size: ' + str(self.dataset_loader.dataset_size) + ' </br>\n'
         text += 'Training - Validation ratio: ' + str(self.dataset_loader.train_ratio) + '\n\n'
         # add 5 - Sample images
-        text += '## 6 - Sample Images\n\n'
+        text += '## 5 - Sample Images\n\n'
         text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
 
         image_path = os.path.join(self.output_path, 'progress_images')
         image_dirs = os.listdir(image_path)
         for image in image_dirs:
             text += '![' + image + '](./progress_images/' + image + '/animfile.gif)\n'
+
+        # add 6 - Notes
+        text += '\n## 6 - Notes\n\n'
+        text += '*Placeholder*'
 
         # write file
         file = open(self.output_path+'\\ABOUT.md', 'w')
