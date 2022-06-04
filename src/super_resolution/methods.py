@@ -98,8 +98,9 @@ class AdversarialNetwork(Method):
         disc_gradient = disc_tape.gradient(disc_loss, self.discriminator.network.trainable_variables)
 
         # adjust the parameters with backpropagation
-        self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.network.trainable_variables))
-        self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
+        if train:
+            self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.network.trainable_variables))
+            self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
 
         # return loss because it can't be accessed in a @tf.function
         return generated_images, (gen_loss, disc_loss)

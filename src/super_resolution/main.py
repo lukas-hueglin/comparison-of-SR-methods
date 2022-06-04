@@ -13,8 +13,8 @@ from utils import TColors
 MODE = 'training'
 
 
-EPOCHS = 60
-BATCH_SIZE = 32
+EPOCHS = 40
+BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
 ## main function
@@ -23,8 +23,8 @@ def main():
     # create dataset loader
     dataset_loader = DatasetLoader(
         path='D:\\Local UNSPLASH Dataset Full',
-        feature_lod=5,
-        label_lod=3,
+        feature_lod=3,
+        label_lod=1,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
         dataset_type='supervised',
@@ -34,7 +34,7 @@ def main():
     # create sample loader
     sample_loader = SampleLoader(
         path='D:\\Local UNSPLASH Samples',
-        resolution=32,
+        resolution=128,
         batch_size=BATCH_SIZE
     )
 
@@ -51,7 +51,7 @@ def main():
         )
 
         # load a pretrained framework
-        pipeline.load_framework('SRGAN_v.005')
+        #pipeline.load_framework('SRGAN_v.003')
 
         # check the variables of pipeline
         pipeline.check()
@@ -66,7 +66,7 @@ def main():
         )
 
         # load a pretrained framework
-        pipeline.load_framework('SRDemo_v.001')
+        #pipeline.load_framework('SRGAN_v.003')
 
         # check the variables of pipeline
         pipeline.check()

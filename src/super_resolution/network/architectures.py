@@ -65,7 +65,6 @@ def make_SRResNet(input_res):
     y = layers.Conv2D(3, (9, 9), strides=1, padding='same', name='Conv_03')(x)
 
     return Model(inputs=input, outputs=y, name='SRResNet')
-
     
 
 # A placeholder function for the SRGan discriminator

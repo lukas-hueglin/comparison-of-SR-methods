@@ -208,10 +208,11 @@ class Trainer(Pipeline):
                     self.perform_SR(epoch)
 
                 # add a epoch to the stats recorders
-                self.framework.add_epoch()
+                if epoch != self.epochs + start_epoch - 1:
+                    self.framework.add_epoch()
 
                 # save checkpoint
-                if epoch % 10 == 0 or epoch == self.epochs + start_epoch - 1:
+                if epoch % 1 == 0 or epoch == self.epochs + start_epoch - 1: # normal epoch % 10 == 0
                     self.save_framework(epoch)
 
             # plot stats
@@ -355,6 +356,10 @@ class Validator(Pipeline):
         for batch in tqdm(range(num_batches)):
             # get data to train
             (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
+
+            # convert to tensors
+            features = tf.convert_to_tensor(features)
+            labels = tf.convert_to_tensor(labels)
 
             # train
             now = time.perf_counter()

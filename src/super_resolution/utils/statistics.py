@@ -19,13 +19,13 @@ def PSNR_metric(y_pred, y_true):
     return sum/len(y_pred)
 
 def SSIM_metric(y_pred, y_true):
-    k1 = 0.5
-    k2 = 0.5
+    k1 = 0.01
+    k2 = 0.03
     L = 1.0 # Dynamic range
 
     C1 = np.square(k1*L)
     C2 = np.square(k2*L)
-    C3 = 1.0
+    C3 = C2/2
 
     alpha = 1.0
     beta = 1.0
