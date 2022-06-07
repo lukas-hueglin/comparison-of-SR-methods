@@ -27,7 +27,7 @@ def main():
         label_lod=1,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
-        dataset_type='supervised',
+        dataset_type='unsupervised',
         dataset_size=1000
     )
 
@@ -45,13 +45,11 @@ def main():
             framework=presets.build_SRGAN(),
             epochs=EPOCHS,
             dataset_loader=dataset_loader,
-            
             # if you don't have sample images or don't need it just set it None
-            sample_loader=sample_loader
+            sample_loader=sample_loader, 
+            # load a pretrained framework
+            #load_path='SRGAN_v.001'
         )
-
-        # load a pretrained framework
-        #pipeline.load_framework('SRGAN_v.003')
 
         # check the variables of pipeline
         pipeline.check()
@@ -62,11 +60,10 @@ def main():
     elif MODE == 'validation':
         # create pipeline
         pipeline = Validator(
-            dataset_loader=dataset_loader
+            dataset_loader=dataset_loader,
+            # load a pretrained framework
+            load_path='SRGAN_v.001'
         )
-
-        # load a pretrained framework
-        #pipeline.load_framework('SRGAN_v.003')
 
         # check the variables of pipeline
         pipeline.check()
@@ -77,11 +74,10 @@ def main():
     elif MODE == 'perform':
         # create pipeline
         pipeline = Performer(
-            sample_loader=sample_loader
+            sample_loader=sample_loader,
+            # load a pretrained framework
+            load_path=None
         )
-
-        # load a pretrained framework
-        pipeline.load_framework('SRDemo_v.012')
 
         # check the variables of pipeline
         pipeline.check()

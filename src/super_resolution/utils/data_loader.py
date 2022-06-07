@@ -10,8 +10,6 @@ import tensorflow as tf
 import multiprocessing as mp
 import time
 
-from tqdm import tqdm
-
 import os
 import numpy as np
 import h5py
@@ -144,7 +142,7 @@ class DatasetLoader():
                         if image_count % self.batch_size == 0:
                             # shuffle features so a unsupervised dataset is generated
                             if self.dataset_type == 'unsupervised':
-                                images = np.random.shuffle(images)
+                                np.random.shuffle(images)
 
                             # stop timer
                             now = time.perf_counter()
@@ -165,7 +163,7 @@ class DatasetLoader():
             if len(images) != 0:
                 # shuffle features so a unsupervised dataset is generated
                 if self.dataset_type == 'unsupervised':
-                    images = np.random.shuffle(images)
+                    np.random.shuffle(images)
 
                 # put on queue
                 queue.put((images, time.perf_counter()-timer))
