@@ -23,7 +23,7 @@ class Method(ABC):
         super().__init__()
 
     @abstractmethod
-    def train_method(self, features, labels, train=True):
+    def train_method(self, features, labels):
         return labels
 
     @abstractmethod
@@ -77,17 +77,17 @@ class AdversarialNetwork(Method):
     # The train_method(x, y) function trains the generator
     # and the discriminator with the typical GAN procedure.
     # (from the tensorflow documentation: https://www.tensorflow.org/tutorials/generative/dcgan)
-    def train_method(self, features, labels, train=True):
+    def train_method(self, features, labels):
         # The GradientTapes watch the transformation of the network parameters
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
 
             # predition by the generator
-            generated_images = self.generator.network(features, training=train)
+            generated_images = self.generator.network(features, training=True)
 
             # prediction by the discriminator given a real image
             # (real_output) and given the generated image of the generator
-            real_output = self.discriminator.network(labels, training=train)
-            fake_output = self.discriminator.network(generated_images, training=train)
+            real_output = self.discriminator.network(labels, training=True)
+            fake_output = self.discriminator.network(generated_images, training=True)
 
             # calculate the loss
             gen_loss = self.generator.loss_function(labels, generated_images, fake_output)
@@ -98,9 +98,8 @@ class AdversarialNetwork(Method):
         disc_gradient = disc_tape.gradient(disc_loss, self.discriminator.network.trainable_variables)
 
         # adjust the parameters with backpropagation
-        if train:
-            self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.network.trainable_variables))
-            self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
+        self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.network.trainable_variables))
+        self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
 
         # return loss because it can't be accessed in a @tf.function
         return generated_images, (gen_loss, disc_loss)
@@ -145,12 +144,13 @@ class AdversarialNetwork(Method):
 
     # adds the values to the StatsRecorder
     def add_loss(self, loss):
-        # unpack loss
-        gen_loss, disc_loss = loss
+        if loss is not None:
+            # unpack loss
+            gen_loss, disc_loss = loss
 
-        # add loss
-        self.generator.loss_recorder.add_loss(gen_loss)
-        self.discriminator.loss_recorder.add_loss(disc_loss)
+            # add loss
+            self.generator.loss_recorder.add_loss(gen_loss)
+            self.discriminator.loss_recorder.add_loss(disc_loss)
 
     # counts the epoch counter up one epoch
     def add_epoch(self):
@@ -223,12 +223,12 @@ class SingleNetwork(Method):
     
     # The train_method(x, y) function trains
     # the model,by minimizing the loss of the predicted image.
-    def train_method(self, features, labels, train=True):
+    def train_method(self, features, labels):
         # The GradientTape watches the transformation of the network parameters
         with tf.GradientTape() as tape:
 
             # prediction by the network of the model
-            generated_images = self.model.network(features, training=train)
+            generated_images = self.model.network(features, training=True)
 
             # calculate the loss
             loss = self.model.loss_function(labels, generated_images)
