@@ -7,9 +7,10 @@
 import tensorflow as tf
 
 from keras.applications.vgg19 import VGG19
-from keras import Model, layers
+from keras import Model
 
-from utils import TColors
+import numpy as np
+
 
 # This loss function will return the sum of a VGG loss
 # function and the gen_loss() function. It is used for the SRGAN preset.
@@ -69,8 +70,19 @@ def build_disc_loss(input_res=None):
     def disc_loss(y_real, y_fake):
         real_loss = cross_entropy(tf.ones_like(y_real), y_real)
         fake_loss = cross_entropy(tf.zeros_like(y_fake), y_fake)
+        loss = real_loss + fake_loss
 
-        return real_loss + fake_loss
+        return loss
+
+        # add a error to interfere with the training process of the discriminator
+        optimal_loss = 0.6932 #ln(2)
+        error_ratio = 1
+
+        if loss < optimal_loss:
+            deviation = tf.math.squared_difference(loss, optimal_loss)
+            loss += tf.random.uniform(shape=(), minval=-deviation, maxval=deviation) * error_ratio
+
+        return loss
 
     return disc_loss
 

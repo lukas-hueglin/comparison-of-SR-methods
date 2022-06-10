@@ -13,7 +13,7 @@ from utils import TColors
 MODE = 'training'
 
 
-EPOCHS = 40
+EPOCHS = 4
 BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
@@ -27,8 +27,8 @@ def main():
         label_lod=1,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
-        dataset_type='unsupervised',
-        dataset_size=1000
+        dataset_type='supervised',
+        dataset_size=10000
     )
 
     # create sample loader
@@ -48,7 +48,7 @@ def main():
             # if you don't have sample images or don't need it just set it None
             sample_loader=sample_loader, 
             # load a pretrained framework
-            #load_path='SRGAN_v.001'
+            load_path='SRGAN_v.003'
         )
 
         # check the variables of pipeline
