@@ -548,8 +548,13 @@ class Performer(Pipeline):
 
     # performes the superresolution task and returns the upsampled image
     def perform_SR(self):
+        generated_images = []
         # generate images
-        generated_images = self.framework.generate_images(self.sample_images)
+        for i in range(0, len(self.sample_images), 2):
+            imgs = self.framework.generate_images(self.sample_images[i:i+2])
+            generated_images.append(imgs)
+        
+        generated_images = np.reshape(generated_images, (-1, np.shape(generated_images)[2], np.shape(generated_images)[3], np.shape(generated_images)[4]))
         self.save_images(generated_images)
 
     # saves images to the output path

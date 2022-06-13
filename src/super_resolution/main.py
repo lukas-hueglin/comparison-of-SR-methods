@@ -10,10 +10,10 @@ from utils import TColors
 
 
 ## global parameters
-MODE = 'training'
+MODE = 'perform'
 
 
-EPOCHS = 4
+EPOCHS = 10
 BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
@@ -33,7 +33,7 @@ def main():
 
     # create sample loader
     sample_loader = SampleLoader(
-        path='D:\\Local UNSPLASH Samples',
+        path='D:\\Super Resolution Samples\\LOD_3',
         resolution=128,
         batch_size=BATCH_SIZE
     )
@@ -62,7 +62,7 @@ def main():
         pipeline = Validator(
             dataset_loader=dataset_loader,
             # load a pretrained framework
-            load_path='SRGAN_v.001'
+            load_path='SRGAN_v.003'
         )
 
         # check the variables of pipeline
@@ -76,7 +76,7 @@ def main():
         pipeline = Performer(
             sample_loader=sample_loader,
             # load a pretrained framework
-            load_path=None
+            load_path='SRGAN_v.003'
         )
 
         # check the variables of pipeline
