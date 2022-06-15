@@ -1,128 +1,97 @@
-from msilib.schema import RadioButton
 import os
 import numpy as np
 
-from functools import partial
-from multiprocessing import Pool
-
 import cv2
 from matplotlib import pyplot as plt
+from PIL import Image, ImageDraw
 
-# Global params
-SLICES = 12
-RADIUS = 4
-UPSCALING_FACTOR = 4
 
-# helper functions
+def generate_sample():
+    sample = abs(np.random.normal(size=(6, 6))) * 255
 
-def get_slice_from_points(xr, yr, xp, yp):
-    delta_x = xp - xr
-    delta_y = yr - yp
+    '''
+    sample = np.zeros(shape=(6, 6))
 
-    if delta_x == 0:
-        angle = np.pi/2
-    else:
-        angle = abs(np.arctan(delta_y / delta_x))
-    if delta_x <= 0 and delta_y > 0:
-        angle = np.pi - angle
-    elif delta_x <= 0 and delta_y < 0:
-        angle = angle + np.pi
-    elif delta_x >= 0 and delta_y < 0:
-        angle = 2*np.pi - angle
+    for i in range(6):
+        for j in range(6):
+            sample[i, j] = (i / 10 + j / 10) * 255'''
 
-    return int(np.floor(SLICES * angle / (2*np.pi))) + 1
+    return sample
 
-def encode_row(y, img):
-    row = []
-    for x in range(len(img[y])):
-        channels = []
-        for c in range(3):
-            slices = []
-            slices.append(img[y, x, c])
-            for a in range(SLICES):
-                values = []
-                for i in range(RADIUS):
-                    new_x = int(np.round(x+np.cos(2*a*np.pi/SLICES)*i))
-                    new_y = int(np.round(y+np.sin(2*a*np.pi/SLICES)*i))
+def scale_up(img):
+    upscale = Image.fromarray(img).resize((img.shape[0]*2, img.shape[1]*2))
+    draw = ImageDraw.Draw(upscale) 
 
-                    if new_x >= len(img[y]) or new_y >= len(img) or new_x < 0 or new_y < 0:
-                        values.append(0)
+    for y in range(img.shape[0]-1):
+        for x in range(img.shape[1]-1):
+            if abs(img[y, x]-img[y, x+1]) <= abs(img[y, x]-img[y+1, x+1]):
+                if abs(img[y, x]-img[y, x+1]) <= abs(img[y, x]-img[y+1, x]):
+                    if abs(img[y, x]-img[y, x+1]) <= abs(img[y, x]-img[y+1, x-1]):
+                        i = x+1
+                        j = y
                     else:
-                        values.append(img[new_y, new_x, c])
-                slices.append(np.mean(values))
-            channels.append(slices)
-        row.append(channels)
-    return row
-
-def decode_row(y, img):
-    encoded_y = int(y / UPSCALING_FACTOR)
-    row = []
-    for x in range(len(img[encoded_y]) * UPSCALING_FACTOR):
-        encoded_x = int(x / UPSCALING_FACTOR)
-        channels = []
-        for c in range(3):
-            sum = 0
-            sum_of_weights = 0
-            for py in range(encoded_y-RADIUS, encoded_y+RADIUS+1):
-                for px in range(encoded_x-RADIUS, encoded_x+RADIUS+1):
-                    slice = get_slice_from_points(encoded_x, encoded_y, px, py)
-                    distance = np.sqrt(np.square(encoded_x-px) + np.square(encoded_y-py))
-                    weight = 1
-
-                    if distance > RADIUS:
-                        weight = 0
-                    if px >= len(img[encoded_y]) or py >= len(img) or px < 0 or py < 0:
-                        weight = 0
-                    else:
-                        sum += weight * img[py][px][c][slice]
-                        sum_of_weights += weight
-
-            if sum_of_weights == 0:
-                channels.append(0)
+                        i = x -1
+                        j = y + 1
+                elif abs(img[y, x]-img[y+1, x]) <= abs(img[y, x]-img[y+1, x-1]):
+                    i = x
+                    j = y+1
+                else:
+                    i = x -1
+                    j = y + 1
+            elif abs(img[y, x]-img[y+1, x+1]) <= abs(img[y, x]-img[y+1, x]):
+                if abs(img[y, x]-img[y+1, x+1]) <= abs(img[y, x]-img[y+1, x-1]):
+                    i = x+1
+                    j = y+1
+                else:
+                    i = x -1
+                    j = y + 1 
+            elif abs(img[y, x]-img[y+1, x]) <= abs(img[y, x]-img[y+1, x-1]):
+                i = x
+                j = y+1
             else:
-                channels.append(int(np.round(sum / sum_of_weights)))
-        row.append(channels)
-    return row
+                i = x -1
+                j = y + 1
+            
+            draw.line((2*x, 2*y, 2*i, 2*j), fill=int(img[y, x]), width=1)
 
+            '''
+            fig, (small, big) = plt.subplots(1, 2)
+            small.imshow(img, cmap='gray')
+            small.scatter((x, i), (y, j), color=('red', 'blue'))
+            big.imshow(upscale, cmap='gray')
+            big.scatter((2*x, 2*i), (2*y, 2*j), color=('red', 'blue'))
+            plt.show()'''
+
+    return upscale
+   
 
 def main():
     # images folder in ignored by git
     scriptDir = os.path.dirname(__file__)
-    impath = os.path.join(scriptDir, '../images/Unsplash_Lite_04.jpg')
+    impath = os.path.join(scriptDir, '../images/img_04.jpg')
 
     # open image
     image = cv2.imread(impath)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # encode the image before upscaling
-    encoded_image = []
-    with Pool(processes=10) as pool:
-        func = partial(encode_row, img=image)
-        encoded_image = pool.map(func, range(len(image)))
+    r = image[:,:,0]
+    g = image[:,:,1]
+    b = image[:,:,2]
 
-    print('encoding finished!')
+    upscale_1_r = np.array(scale_up(r))
+    upscale_1_g = np.array(scale_up(g))
+    upscale_1_b = np.array(scale_up(b))
 
-    # decode the image
-    decoded_image = []
-    with Pool(processes=10) as pool:
-        func = partial(decode_row, img=encoded_image)
-        decoded_image = pool.map(func, range(len(image) * UPSCALING_FACTOR))
+    upscale_2_r = np.array(scale_up(upscale_1_r))
+    upscale_2_g = np.array(scale_up(upscale_1_g))
+    upscale_2_b = np.array(scale_up(upscale_1_b))
 
-    print('decoding finished!')
+    upscale = cv2.merge((upscale_2_r, upscale_2_g, upscale_2_b))
 
-    fig, (img1, img2, img3) = plt.subplots(1, 3)
-
-    img1.imshow(image)
-    img2.imshow(cv2.resize(image, (np.shape(image)[0] * UPSCALING_FACTOR, np.shape(image)[1] * UPSCALING_FACTOR), interpolation=cv2.INTER_CUBIC))
-    img3.imshow(decoded_image)
-
-    # set titles
-    img1.title.set_text('Original')
-    img2.title.set_text('Bicubic')
-    img3.title.set_text('Generated')
-
+    fig, (small, big) = plt.subplots(1, 2)
+    small.imshow(image)
+    big.imshow(upscale)
     plt.show()
-    
 
 
 ## main function call ##
