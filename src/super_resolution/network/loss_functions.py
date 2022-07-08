@@ -9,7 +9,14 @@ import tensorflow as tf
 from keras.applications.vgg19 import VGG19
 from keras import Model
 
+#from utils import TColors
+
 import numpy as np
+
+import os
+import cv2
+import matplotlib.pyplot as plt
+import time
 
 
 # This loss function will return the sum of a VGG loss
@@ -25,9 +32,21 @@ def build_SRGAN_loss(input_res=None):
 
     return SRGAN_loss
 
+# This loss function will return the sum of a Fourier loss
+# function and the gen_loss() function. It is used for the SRGAN_Fourier preset.
+def build_SRGAN_Fourier_loss(input_res=None):
+    # build Fourier_loss
+    Fourier_loss = build_Fourier_loss(input_res)
+    # build gen_loss
+    gen_loss = build_gen_loss()
+
+    def SRGAN_Fourier_loss(y_true, y_pred, y_disc):
+        return Fourier_loss(y_true, y_pred) + gen_loss(y_disc)
+
+    return SRGAN_Fourier_loss
+
 # The loss of a VGG loss function (content loss)
 # (with help from: https://github.com/deepak112/Keras-SRGAN/blob/master/Utils_model.py)
-
 def build_SRResNet_loss(input_res=None):
     # get shape
     shape = (input_res, input_res, 3)
@@ -52,6 +71,85 @@ def build_SRResNet_loss(input_res=None):
 
     return SRResNet_loss
 
+
+def build_Fourier_loss(input_res=None):
+    # params
+    FREQ_BOUNDS = [0, 0.02, 0.15, 0.4,  1]
+    FREQ_WEIGHTS = [1, 2, 2, 4]
+
+    if len(FREQ_BOUNDS) != len(FREQ_WEIGHTS) + 1:
+        #print(TColors.WARNING + 'Freq bounds and freq weights do not match in length!' + TColors.ENDC)
+        pass
+
+    # build mse
+    MSE_loss = build_MSE_loss()
+
+    def fourier(c):
+        transform = tf.signal.fft2d(c)
+        return tf.signal.fftshift(transform)
+
+    def inverse_fourier(c):
+        shifted = tf.signal.ifftshift(c)
+        return tf.signal.ifft2d(shifted)
+
+    def mask(c, b1, b2):
+        # create pixel bounds
+        pb1, pb2 = int(input_res * b1 / 2), int(input_res * b2 / 2)
+
+        middle = int(input_res / 2)
+
+        # create a black mask
+        mask = np.zeros(c.shape)
+
+        # draw the parts, which should stay and the parts which should go
+        mask[:, middle - pb2:middle + pb2, middle - pb2:middle + pb2] = 1
+        mask[:, middle - pb1:middle + pb1, middle - pb1:middle + pb1] = 0
+
+        return c * tf.cast(tf.convert_to_tensor(mask), tf.complex64)
+
+    def analyze(img):
+        # split channels and convert to complex tensors
+        r, g, b = tf.split(tf.cast(img, tf.complex64), num_or_size_splits=3, axis=3)
+        r, g, b = tf.reshape(r, r.shape[:-1]), tf.reshape(g, g.shape[:-1]), tf.reshape(b, b.shape[:-1])
+
+        # define return container
+        imgs = []
+
+        # perform fourier transform
+        (fr, fg, fb) = [fourier(c) for c in (r, g, b)]
+
+        for bound in range(len(FREQ_BOUNDS)-1):
+            # mask frequencies
+            bound1 = FREQ_BOUNDS[bound]
+            bound2 = FREQ_BOUNDS[bound+1]
+
+            (mfr, mfg, mfb) = [mask(c, bound1, bound2) for c in (fr, fg, fb)]
+
+            # perform inverse fourier transform
+            (imfr, imfg, imfb) = [tf.reshape(tf.math.abs(inverse_fourier(c)), (-1, input_res, input_res, 1)) for c in (mfr, mfg, mfb)]
+
+            # merge channels
+            imgs.append(tf.concat([imfr, imfg, imfb], 3))
+
+        return imgs
+
+
+    def Fourier_loss(y_true, y_pred):
+        # analyse images
+        images_in = tf.concat([tf.cast(y_true, tf.float32), tf.maximum(tf.cast(y_pred, tf.float32), 0)], 0)
+        images_out = analyze(images_in)
+
+        true_analyzed, pred_analyzed = tf.split(images_out, num_or_size_splits=2, axis=1)
+
+        loss = 0
+        # get mse error between images
+        for i in range(len(FREQ_WEIGHTS)):
+            loss += MSE_loss(true_analyzed[i], pred_analyzed[i]) * FREQ_WEIGHTS[i]
+
+        return loss / np.sum(FREQ_WEIGHTS)
+
+    return Fourier_loss
+
 # The loss function for the SRGAN generator (adversarial loss)
 # (from: https://www.tensorflow.org/tutorials/generative/dcgan)
 def build_gen_loss(input_res=None):
@@ -71,16 +169,6 @@ def build_disc_loss(input_res=None):
         real_loss = cross_entropy(tf.ones_like(y_real), y_real)
         fake_loss = cross_entropy(tf.zeros_like(y_fake), y_fake)
         loss = real_loss + fake_loss
-
-        return loss
-
-        # add a error to interfere with the training process of the discriminator
-        optimal_loss = 0.6932 #ln(2)
-        error_ratio = 1
-
-        if loss < optimal_loss:
-            deviation = tf.math.squared_difference(loss, optimal_loss)
-            loss += tf.random.uniform(shape=(), minval=-deviation, maxval=deviation) * error_ratio
 
         return loss
 
