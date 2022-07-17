@@ -90,7 +90,7 @@ class AdversarialNetwork(Method):
             fake_output = self.discriminator.network(generated_images, training=True)
 
             # calculate the loss
-            gen_loss = self.generator.loss_function(labels, generated_images, fake_output)
+            gen_loss = self.generator.loss_function(labels, generated_images, fake_output, self.generator.loss_recorder.epochs)
             disc_loss = self.discriminator.loss_function(real_output, fake_output)
 
         # calculate the gradient of generator and discriminator

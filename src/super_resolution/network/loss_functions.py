@@ -13,11 +13,6 @@ from keras import Model
 
 import numpy as np
 
-import os
-import cv2
-import matplotlib.pyplot as plt
-import time
-
 
 # This loss function will return the sum of a VGG loss
 # function and the gen_loss() function. It is used for the SRGAN preset.
@@ -40,8 +35,8 @@ def build_SRGAN_Fourier_loss(input_res=None):
     # build gen_loss
     gen_loss = build_gen_loss()
 
-    def SRGAN_Fourier_loss(y_true, y_pred, y_disc):
-        return Fourier_loss(y_true, y_pred) + gen_loss(y_disc)
+    def SRGAN_Fourier_loss(y_true, y_pred, y_disc, epoch):
+        return Fourier_loss(y_true, y_pred, epoch) + gen_loss(y_disc)
 
     return SRGAN_Fourier_loss
 
@@ -73,14 +68,6 @@ def build_SRResNet_loss(input_res=None):
 
 
 def build_Fourier_loss(input_res=None):
-    # params
-    FREQ_BOUNDS = [0, 0.02, 0.15, 0.4,  1]
-    FREQ_WEIGHTS = [1, 2, 2, 4]
-
-    if len(FREQ_BOUNDS) != len(FREQ_WEIGHTS) + 1:
-        #print(TColors.WARNING + 'Freq bounds and freq weights do not match in length!' + TColors.ENDC)
-        pass
-
     # build mse
     MSE_loss = build_MSE_loss()
 
@@ -107,7 +94,7 @@ def build_Fourier_loss(input_res=None):
 
         return c * tf.cast(tf.convert_to_tensor(mask), tf.complex64)
 
-    def analyze(img):
+    def analyze(img, freq_bounds):
         # split channels and convert to complex tensors
         r, g, b = tf.split(tf.cast(img, tf.complex64), num_or_size_splits=3, axis=3)
         r, g, b = tf.reshape(r, r.shape[:-1]), tf.reshape(g, g.shape[:-1]), tf.reshape(b, b.shape[:-1])
@@ -118,10 +105,10 @@ def build_Fourier_loss(input_res=None):
         # perform fourier transform
         (fr, fg, fb) = [fourier(c) for c in (r, g, b)]
 
-        for bound in range(len(FREQ_BOUNDS)-1):
+        for bound in range(len(freq_bounds)-1):
             # mask frequencies
-            bound1 = FREQ_BOUNDS[bound]
-            bound2 = FREQ_BOUNDS[bound+1]
+            bound1 = freq_bounds[bound]
+            bound2 = freq_bounds[bound+1]
 
             (mfr, mfg, mfb) = [mask(c, bound1, bound2) for c in (fr, fg, fb)]
 
@@ -134,10 +121,15 @@ def build_Fourier_loss(input_res=None):
         return imgs
 
 
-    def Fourier_loss(y_true, y_pred):
+    def Fourier_loss(y_true, y_pred, epoch):
+        # params
+        FREQ_BOUNDS = [0, 0.02, 0.15, 0.4,  1]
+        #FREQ_WEIGHTS = [np.exp(-((epoch-1)/2)+1.5)+1, epoch/10+1, epoch/8+1, np.min([np.exp((epoch-1)/10-3)+1, 10])]
+        FREQ_WEIGHTS = [1, 4, 7, 8]
+
         # analyse images
         images_in = tf.concat([tf.cast(y_true, tf.float32), tf.maximum(tf.cast(y_pred, tf.float32), 0)], 0)
-        images_out = analyze(images_in)
+        images_out = analyze(images_in, FREQ_BOUNDS)
 
         true_analyzed, pred_analyzed = tf.split(images_out, num_or_size_splits=2, axis=1)
 
@@ -146,7 +138,7 @@ def build_Fourier_loss(input_res=None):
         for i in range(len(FREQ_WEIGHTS)):
             loss += MSE_loss(true_analyzed[i], pred_analyzed[i]) * FREQ_WEIGHTS[i]
 
-        return loss / np.sum(FREQ_WEIGHTS)
+        return (loss / np.sum(FREQ_WEIGHTS))
 
     return Fourier_loss
 

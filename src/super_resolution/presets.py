@@ -53,8 +53,8 @@ def build_SRGAN():
 
 
 def build_SRGAN_Fourier():
-    INPUT_RES = 32
-    OUTPUT_RES = 128
+    INPUT_RES = 128
+    OUTPUT_RES = 512
 
     # build generator
     generator = Model(

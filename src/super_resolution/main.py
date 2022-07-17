@@ -13,8 +13,8 @@ from utils import TColors
 MODE = 'training'
 
 
-EPOCHS = 10
-BATCH_SIZE = 64
+EPOCHS = 40
+BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
 ## main function
@@ -23,18 +23,18 @@ def main():
     # create dataset loader
     dataset_loader = DatasetLoader(
         path='D:\\Local UNSPLASH Dataset Full',
-        feature_lod=5,
-        label_lod=3,
+        feature_lod=3,
+        label_lod=1,
         batch_size=BATCH_SIZE,
         buffer_size=BUFFER_SIZE,
         dataset_type='supervised',
-        dataset_size=10000
+        dataset_size=1000
     )
 
     # create sample loader
     sample_loader = SampleLoader(
         path='D:\\Local UNSPLASH Samples',
-        resolution=32,
+        resolution=128,
         batch_size=BATCH_SIZE
     )
 
