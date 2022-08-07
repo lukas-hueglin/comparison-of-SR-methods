@@ -231,9 +231,9 @@ class PreUpsampling(Framework):
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        generated_image, loss = self.method.train_method(upsampled_features, labels)
+        generated_image, loss, model_true, model_pred, true, pred = self.method.train_method(upsampled_features, labels)
 
-        return generated_image, loss
+        return generated_image, loss, model_true, model_pred, true, pred
 
     # generates images the same way it is trained
     # the check param is true if the function is used within the pipeline's check() function

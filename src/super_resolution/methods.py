@@ -90,7 +90,7 @@ class AdversarialNetwork(Method):
             fake_output = self.discriminator.network(generated_images, training=True)
 
             # calculate the loss
-            gen_loss = self.generator.loss_function(labels, generated_images, fake_output, self.generator.loss_recorder.epochs)
+            gen_loss, model_true, model_pred, true, pred = self.generator.loss_function(labels, generated_images, fake_output)
             disc_loss = self.discriminator.loss_function(real_output, fake_output)
 
         # calculate the gradient of generator and discriminator
@@ -106,7 +106,7 @@ class AdversarialNetwork(Method):
             self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
 
         # return loss because it can't be accessed in a @tf.function
-        return generated_images, (gen_loss, disc_loss)
+        return (generated_images, (gen_loss, disc_loss), model_true, model_pred, true, pred)
 
     # returns the generated image of the generator
     # the check param is true if the function is used within the pipeline's check() function

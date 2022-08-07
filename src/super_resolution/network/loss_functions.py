@@ -23,7 +23,8 @@ def build_SRGAN_loss(input_res=None):
     gen_loss = build_gen_loss()
 
     def SRGAN_loss(y_true, y_pred, y_disc):
-        return SRResNet_loss(y_true, y_pred) + gen_loss(y_disc)
+        ResNet_loss , model_true, model_pred = SRResNet_loss(y_true, y_pred)
+        return (ResNet_loss + gen_loss(y_disc), model_true, model_pred, y_true, y_pred)
 
     return SRGAN_loss
 
@@ -35,8 +36,9 @@ def build_SRGAN_Fourier_loss(input_res=None):
     # build gen_loss
     gen_loss = build_gen_loss()
 
-    def SRGAN_Fourier_loss(y_true, y_pred, y_disc, epoch):
-        return Fourier_loss(y_true, y_pred, epoch) + gen_loss(y_disc)
+    def SRGAN_Fourier_loss(y_true, y_pred, y_disc):
+        floss , fourier_true, fourier_pred = Fourier_loss(y_true, y_pred)
+        return (floss, fourier_true, fourier_pred, y_true, y_pred)
 
     return SRGAN_Fourier_loss
 
@@ -62,7 +64,9 @@ def build_SRResNet_loss(input_res=None):
 
     def SRResNet_loss(y_true, y_pred):
         # calculate loss
-        return MSE_loss(model(y_true), model(y_pred))
+        model_true = model(y_true)
+        model_pred = model(y_pred)
+        return (MSE_loss(model_true, model_pred), model_true, model_pred)
 
     return SRResNet_loss
 
@@ -121,7 +125,7 @@ def build_Fourier_loss(input_res=None):
         return imgs
 
 
-    def Fourier_loss(y_true, y_pred, epoch):
+    def Fourier_loss(y_true, y_pred):
         # params
         FREQ_BOUNDS = [0, 0.02, 0.15, 0.4,  1]
         #FREQ_WEIGHTS = [np.exp(-((epoch-1)/2)+1.5)+1, epoch/10+1, epoch/8+1, np.min([np.exp((epoch-1)/10-3)+1, 10])]
@@ -138,7 +142,7 @@ def build_Fourier_loss(input_res=None):
         for i in range(len(FREQ_WEIGHTS)):
             loss += MSE_loss(true_analyzed[i], pred_analyzed[i]) * FREQ_WEIGHTS[i]
 
-        return (loss / np.sum(FREQ_WEIGHTS))
+        return (loss / np.sum(FREQ_WEIGHTS), true_analyzed, pred_analyzed)
 
     return Fourier_loss
 

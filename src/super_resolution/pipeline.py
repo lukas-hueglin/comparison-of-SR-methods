@@ -192,7 +192,45 @@ class Trainer(Pipeline):
 
                     # train
                     now = time.perf_counter()
-                    generated_images, loss = self.framework.train_step(features, labels)
+                    generated_images, loss, model_true, model_pred, true, pred = self.framework.train_step(features, labels)
+
+                    if batch == 2:
+                        for f in range(4):
+                            img_true = cv2.cvtColor(np.array(model_true)[f, 0, :, :]*255, cv2.COLOR_RGB2BGR)
+                            img_pred = cv2.cvtColor(np.array(model_pred)[f, 0, :, :]*255, cv2.COLOR_RGB2BGR)
+
+                            # make paths
+                            dir_path_true = os.path.join(self.output_path, 'progress_images', 'fourier_true', 'epoch_' + f"{epoch:03d}")
+                            img_path_true = os.path.join(dir_path_true, 'fourier_mask_' + f"{f:03d}" + '.jpg')
+                            dir_path_pred = os.path.join(self.output_path, 'progress_images', 'fourier_prediction', 'epoch_' + f"{epoch:03d}")
+                            img_path_pred = os.path.join(dir_path_pred, 'fourier_mask_' + f"{f:03d}" + '.jpg')
+
+                            # make a new folder
+                            os.makedirs(dir_path_true, exist_ok=True)
+                            os.makedirs(dir_path_pred, exist_ok=True)
+                            
+                            cv2.imwrite(img_path_true, img_true)
+                            cv2.imwrite(img_path_pred, img_pred)
+
+
+                        img_true = cv2.cvtColor(np.reshape(np.float32(true[0]), (512, 512, 3))*255, cv2.COLOR_RGB2BGR)
+                        img_pred = cv2.cvtColor(np.reshape(np.float32(pred[0]), (512, 512, 3))*255, cv2.COLOR_RGB2BGR)
+
+                        # make paths
+                        dir_path_true = os.path.join(self.output_path, 'progress_images', 'fourier_true', 'epoch_' + f"{epoch:03d}")
+                        img_path_true = os.path.join(dir_path_true, 'prediction.jpg')
+                        dir_path_pred = os.path.join(self.output_path, 'progress_images', 'fourier_prediction', 'epoch_' + f"{epoch:03d}")
+                        img_path_pred = os.path.join(dir_path_pred, 'prediction.jpg')
+
+                        # make a new folder
+                        os.makedirs(dir_path_true, exist_ok=True)
+                        os.makedirs(dir_path_pred, exist_ok=True)
+                        
+                        cv2.imwrite(img_path_true, img_true)
+                        cv2.imwrite(img_path_pred, img_pred)
+
+
+
 
                     # stop timer
                     network_time = time.perf_counter() - now
