@@ -13,7 +13,7 @@ from utils import TColors
 MODE = 'training'
 
 
-EPOCHS = 30
+EPOCHS = 40
 BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
@@ -42,13 +42,13 @@ def main():
     if MODE == 'training':
         # create pipeline
         pipeline = Trainer(
-            framework=presets.build_SRGAN_Fourier(),
+            framework=presets.build_SRGAN(),
             epochs=EPOCHS,
             dataset_loader=dataset_loader,
             # if you don't have sample images or don't need it just set it None
             sample_loader=sample_loader, 
             # load a pretrained framework
-            load_path='SRGAN_Fourier_v.001'
+            #load_path='SRGAN_Fourier_v.001'
         )
 
         # check the variables of pipeline

@@ -195,15 +195,19 @@ class Trainer(Pipeline):
                     generated_images, loss, model_true, model_pred, true, pred = self.framework.train_step(features, labels)
 
                     if batch == 2:
-                        for f in range(4):
-                            img_true = cv2.cvtColor(np.array(model_true)[f, 0, :, :]*255, cv2.COLOR_RGB2BGR)
-                            img_pred = cv2.cvtColor(np.array(model_pred)[f, 0, :, :]*255, cv2.COLOR_RGB2BGR)
+                        for f in range(256):
+                            arr_true = np.array(model_true)[0, :, :, f]
+                            arr_pred = np.array(model_pred)[0, :, :, f]
+                            arr_true = arr_true/np.amax(arr_true)*255
+                            arr_pred = arr_pred/np.amax(arr_pred)*255
+                            img_true = cv2.cvtColor(arr_true, cv2.COLOR_RGB2BGR)
+                            img_pred = cv2.cvtColor(arr_pred, cv2.COLOR_RGB2BGR)
 
                             # make paths
-                            dir_path_true = os.path.join(self.output_path, 'progress_images', 'fourier_true', 'epoch_' + f"{epoch:03d}")
-                            img_path_true = os.path.join(dir_path_true, 'fourier_mask_' + f"{f:03d}" + '.jpg')
-                            dir_path_pred = os.path.join(self.output_path, 'progress_images', 'fourier_prediction', 'epoch_' + f"{epoch:03d}")
-                            img_path_pred = os.path.join(dir_path_pred, 'fourier_mask_' + f"{f:03d}" + '.jpg')
+                            dir_path_true = os.path.join(self.output_path, 'progress_images', 'vgg_true', 'epoch_' + f"{epoch:03d}")
+                            img_path_true = os.path.join(dir_path_true, 'feature_mask_' + f"{f:03d}" + '.jpg')
+                            dir_path_pred = os.path.join(self.output_path, 'progress_images', 'vgg_prediction', 'epoch_' + f"{epoch:03d}")
+                            img_path_pred = os.path.join(dir_path_pred, 'feature_mask_' + f"{f:03d}" + '.jpg')
 
                             # make a new folder
                             os.makedirs(dir_path_true, exist_ok=True)
@@ -217,9 +221,9 @@ class Trainer(Pipeline):
                         img_pred = cv2.cvtColor(np.reshape(np.float32(pred[0]), (512, 512, 3))*255, cv2.COLOR_RGB2BGR)
 
                         # make paths
-                        dir_path_true = os.path.join(self.output_path, 'progress_images', 'fourier_true', 'epoch_' + f"{epoch:03d}")
-                        img_path_true = os.path.join(dir_path_true, 'prediction.jpg')
-                        dir_path_pred = os.path.join(self.output_path, 'progress_images', 'fourier_prediction', 'epoch_' + f"{epoch:03d}")
+                        dir_path_true = os.path.join(self.output_path, 'progress_images', 'vgg_true', 'epoch_' + f"{epoch:03d}")
+                        img_path_true = os.path.join(dir_path_true, 'true.jpg')
+                        dir_path_pred = os.path.join(self.output_path, 'progress_images', 'vgg_prediction', 'epoch_' + f"{epoch:03d}")
                         img_path_pred = os.path.join(dir_path_pred, 'prediction.jpg')
 
                         # make a new folder
