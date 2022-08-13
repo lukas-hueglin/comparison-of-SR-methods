@@ -10,10 +10,10 @@ from utils import TColors
 
 
 ## global parameters
-MODE = 'training'
+MODE = 'validation'
 
 
-EPOCHS = 40
+EPOCHS = 35
 BATCH_SIZE = 2
 BUFFER_SIZE = 1000
 
@@ -48,7 +48,7 @@ def main():
             # if you don't have sample images or don't need it just set it None
             sample_loader=sample_loader, 
             # load a pretrained framework
-            #load_path='SRGAN_Fourier_v.002'
+            load_path='SRGAN_Fourier_v.017'
         )
 
         # check the variables of pipeline
@@ -62,7 +62,7 @@ def main():
         pipeline = Validator(
             dataset_loader=dataset_loader,
             # load a pretrained framework
-            load_path='SRGAN_v.003'
+            load_path='SRGAN_Fourier_v.017'
         )
 
         # check the variables of pipeline

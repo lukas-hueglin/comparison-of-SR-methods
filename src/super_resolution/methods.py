@@ -15,6 +15,8 @@ from abc import ABC, abstractmethod
 from model import Model
 from utils import TColors
 
+import numpy as np
+
 
 # Abstract Method class. It is practically empty and just
 # requests a train_method(x, y) (and a generate_images(x)) function.
@@ -90,8 +92,8 @@ class AdversarialNetwork(Method):
             fake_output = self.discriminator.network(generated_images, training=True)
 
             # calculate the loss
-            gen_loss = self.generator.loss_function(labels, generated_images, fake_output, self.generator.loss_recorder.epochs)
-            disc_loss = self.discriminator.loss_function(real_output, fake_output)
+            gen_loss, gen_args = self.generator.loss_function(labels, generated_images, fake_output)
+            disc_loss, disc_args = self.discriminator.loss_function(real_output, fake_output)
 
         # calculate the gradient of generator and discriminator
         gen_gradient = gen_tape.gradient(gen_loss, self.generator.network.trainable_variables)
@@ -102,11 +104,11 @@ class AdversarialNetwork(Method):
 
         # only apply gradient if discriminator is not too good
         optimal_loss = 0.6932 #ln(2)
-        if disc_loss >= optimal_loss:
+        if disc_loss >= optimal_loss-0.3:
             self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
 
         # return loss because it can't be accessed in a @tf.function
-        return generated_images, (gen_loss, disc_loss)
+        return generated_images, (gen_loss, disc_loss), (gen_args, disc_args)
 
     # returns the generated image of the generator
     # the check param is true if the function is used within the pipeline's check() function

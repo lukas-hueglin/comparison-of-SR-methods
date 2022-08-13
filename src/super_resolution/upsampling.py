@@ -231,9 +231,9 @@ class PreUpsampling(Framework):
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        generated_image, loss = self.method.train_method(upsampled_features, labels)
+        generated_image, loss, args = self.method.train_method(upsampled_features, labels)
 
-        return generated_image, loss
+        return generated_image, loss, args
 
     # generates images the same way it is trained
     # the check param is true if the function is used within the pipeline's check() function
@@ -355,7 +355,7 @@ class ProgressiveUpsampling(Framework):
             losses.append(loss)
 
             # pass the generated image back into the feature for the next loop
-            features = generated_image
+            features = (generated_image + 1 ) / 2
 
         return generated_images, losses
 

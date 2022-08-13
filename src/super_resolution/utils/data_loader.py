@@ -81,11 +81,11 @@ class DatasetLoader():
 
         feature_loader = mp.Process(
             target=self.load_dataset_mp,
-            args=(feature_queue, self.feature_path, train)
+            args=(feature_queue, self.feature_path, train, True)
         )
         label_loader = mp.Process(
             target=self.load_dataset_mp,
-            args=(label_queue, self.label_path, train)
+            args=(label_queue, self.label_path, train, False)
         )
 
         # start processes and add them to the class variables
@@ -112,7 +112,7 @@ class DatasetLoader():
         self.label_job = (None, None)
 
     # dataset loader function with multiprocessing
-    def load_dataset_mp(self, queue, path, train=True):
+    def load_dataset_mp(self, queue, path, train=True, features=True):
         # start timer
         timer = time.perf_counter()
 
@@ -135,7 +135,12 @@ class DatasetLoader():
 
                     # iterate all images
                     for i in image_nodes:
-                        images.append(np.array(hf[b+'/'+i])/255) # normalize
+                        if features:
+                            array = np.array(hf[b+'/'+i])/255 # normalize
+                        else:
+                            array = np.array(hf[b+'/'+i])/127.5 - 1 # normalize
+
+                        images.append(array) 
                         image_count += 1
 
                         # check if batch is full

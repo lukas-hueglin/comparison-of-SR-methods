@@ -23,7 +23,9 @@ def build_SRGAN_loss(input_res=None):
     gen_loss = build_gen_loss()
 
     def SRGAN_loss(y_true, y_pred, y_disc):
-        return SRResNet_loss(y_true, y_pred) + gen_loss(y_disc)
+        ResNet_loss = SRResNet_loss(y_true, y_pred)
+        G_loss = (1e-2)*gen_loss(y_disc)
+        return (ResNet_loss + G_loss, (ResNet_loss, G_loss))
 
     return SRGAN_loss
 
@@ -32,11 +34,16 @@ def build_SRGAN_loss(input_res=None):
 def build_SRGAN_Fourier_loss(input_res=None):
     # build Fourier_loss
     Fourier_loss = build_Fourier_loss(input_res)
+    # MSE loss
+    MSE_loss = build_MSE_loss()
     # build gen_loss
     gen_loss = build_gen_loss()
 
-    def SRGAN_Fourier_loss(y_true, y_pred, y_disc, epoch):
-        return Fourier_loss(y_true, y_pred, epoch) + gen_loss(y_disc)
+    def SRGAN_Fourier_loss(y_true, y_pred, y_disc):
+        F_loss = (1e2)*Fourier_loss(y_true, y_pred)
+        M_loss = MSE_loss(y_true, y_pred)
+        G_loss = (1e-3)*gen_loss(y_disc)
+        return (M_loss + G_loss, (F_loss, M_loss, G_loss))
 
     return SRGAN_Fourier_loss
 
@@ -62,7 +69,7 @@ def build_SRResNet_loss(input_res=None):
 
     def SRResNet_loss(y_true, y_pred):
         # calculate loss
-        return MSE_loss(model(y_true), model(y_pred))
+        return MSE_loss(model(y_true)/12.75, model(y_pred)/12.75)
 
     return SRResNet_loss
 
@@ -121,14 +128,14 @@ def build_Fourier_loss(input_res=None):
         return imgs
 
 
-    def Fourier_loss(y_true, y_pred, epoch):
+    def Fourier_loss(y_true, y_pred):
         # params
         FREQ_BOUNDS = [0, 0.02, 0.15, 0.4,  1]
         #FREQ_WEIGHTS = [np.exp(-((epoch-1)/2)+1.5)+1, epoch/10+1, epoch/8+1, np.min([np.exp((epoch-1)/10-3)+1, 10])]
-        FREQ_WEIGHTS = [1, 4, 7, 8]
+        FREQ_WEIGHTS = [1/46, 5/46, 10/46, 30/46]
 
         # analyse images
-        images_in = tf.concat([tf.cast(y_true, tf.float32), tf.maximum(tf.cast(y_pred, tf.float32), 0)], 0)
+        images_in = tf.concat([tf.cast((y_true+1)/2, tf.float32), tf.maximum(tf.cast((y_pred+1)/2, tf.float32), 0)], 0)
         images_out = analyze(images_in, FREQ_BOUNDS)
 
         true_analyzed, pred_analyzed = tf.split(images_out, num_or_size_splits=2, axis=1)
@@ -162,7 +169,7 @@ def build_disc_loss(input_res=None):
         fake_loss = cross_entropy(tf.zeros_like(y_fake), y_fake)
         loss = real_loss + fake_loss
 
-        return loss
+        return loss, None
 
     return disc_loss
 

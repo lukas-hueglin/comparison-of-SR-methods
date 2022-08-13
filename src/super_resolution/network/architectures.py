@@ -62,7 +62,8 @@ def make_SRResNet(input_res):
         x = upscale_block(x, i)
 
     # ending conv
-    y = layers.Conv2D(3, (9, 9), strides=1, padding='same', name='Conv_03')(x)
+    x = layers.Conv2D(3, (9, 9), strides=1, padding='same', name='Conv_03')(x)
+    y = layers.Activation('tanh')(x)
 
     return Model(inputs=input, outputs=y, name='SRResNet')
     

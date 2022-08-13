@@ -168,7 +168,7 @@ class StatsRecorder():
         if metrics is not None:
             y_pred, y_true = metrics
             for i in range(len(data_pack['metrics'])):
-                data_pack['metrics'][i].append(self.metric_functions[i](y_pred, y_true))
+                data_pack['metrics'][i].append(self.metric_functions[i]((y_pred+1)/2, (y_true+1)/2))
 
     # count the epoch counter up one epoch.
     def add_epoch(self):

@@ -180,6 +180,10 @@ class Trainer(Pipeline):
                 # prepare the data loading process
                 self.dataset_loader.prepare_loading(train=True)
 
+                F_loss = []
+                M_loss = []
+                G_loss = []
+
                 # iterate over each batch
                 num_batches = int(np.ceil(self.dataset_loader.train_size/self.dataset_loader.batch_size))
                 for batch in tqdm(range(num_batches)):
@@ -192,7 +196,13 @@ class Trainer(Pipeline):
 
                     # train
                     now = time.perf_counter()
-                    generated_images, loss = self.framework.train_step(features, labels)
+                    generated_images, loss, args = self.framework.train_step(features, labels)
+
+                    # do with args what you want
+                    F_loss.append(args[0][0])
+                    M_loss.append(args[0][1])
+                    G_loss.append(args[0][2])
+
 
                     # stop timer
                     network_time = time.perf_counter() - now
@@ -232,6 +242,10 @@ class Trainer(Pipeline):
                         time=(None, None, None, now - train_timer),
                         train=True
                     )
+
+                print("Fourier_loss: ", np.mean(F_loss))
+                print("MSE_loss: ", np.mean(M_loss))
+                print("Gen_loss: ", np.mean(G_loss))
 
                 # save checkpoint
                 self.save_framework(epoch)
@@ -302,7 +316,7 @@ class Trainer(Pipeline):
     # performes superresolution on the sample images
     def save_sample_images(self, images, epoch):
         for i in range(len(images)):
-            img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
+            img = cv2.cvtColor((np.array(images[i])+1)*127.5, cv2.COLOR_RGB2BGR)
 
             # make paths
             dir_path = os.path.join(self.output_path, 'progress_images', 'image_' + f"{i+1:02d}")
@@ -563,7 +577,7 @@ class Performer(Pipeline):
         os.makedirs(dir_path, exist_ok=True)
 
         for i in range(len(images)):
-            img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
+            img = cv2.cvtColor((np.array(images[i])+1)*127.5, cv2.COLOR_RGB2BGR)
             path = os.path.join(dir_path, 'image_' + f"{i+1:03d}" + '.jpg')
             
             cv2.imwrite(path, img)
