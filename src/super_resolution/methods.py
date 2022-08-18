@@ -79,7 +79,7 @@ class AdversarialNetwork(Method):
     # The train_method(x, y) function trains the generator
     # and the discriminator with the typical GAN procedure.
     # (from the tensorflow documentation: https://www.tensorflow.org/tutorials/generative/dcgan)
-    def train_method(self, features, labels):
+    def train_method(self, features, labels, in_args):
         # The GradientTapes watch the transformation of the network parameters
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
 
@@ -104,7 +104,7 @@ class AdversarialNetwork(Method):
 
         # only apply gradient if discriminator is not too good
         optimal_loss = 0.6932 #ln(2)
-        if disc_loss >= optimal_loss-0.3:
+        if in_args >= optimal_loss:
             self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
 
         # return loss because it can't be accessed in a @tf.function

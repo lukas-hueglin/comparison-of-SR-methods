@@ -194,9 +194,16 @@ class Trainer(Pipeline):
                     features = tf.convert_to_tensor(features)
                     labels = tf.convert_to_tensor(labels)
 
+                    # create input args
+                    disc_loss = self.framework.method.discriminator.loss_recorder.loss
+                    if len(disc_loss) == 0:
+                        in_args = tf.Variable(0, dtype=tf.float32, trainable=False)
+                    else:
+                        in_args = tf.Variable(np.mean(disc_loss[-400:]), dtype=tf.float32, trainable=False)
+
                     # train
                     now = time.perf_counter()
-                    generated_images, loss, args = self.framework.train_step(features, labels)
+                    generated_images, loss, args = self.framework.train_step(features, labels, in_args)
 
                     # do with args what you want
                     F_loss.append(args[0][0])

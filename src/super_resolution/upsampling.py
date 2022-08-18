@@ -226,14 +226,14 @@ class PreUpsampling(Framework):
     # This is the training step function. The labels
     # get scaled up first and are sent to the network later
     @tf.function
-    def train_step(self, features, labels):
+    def train_step(self, features, labels, in_args):
         # upsampling the image
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        generated_image, loss, args = self.method.train_method(upsampled_features, labels)
+        generated_image, loss, out_args = self.method.train_method(upsampled_features, labels, in_args)
 
-        return generated_image, loss, args
+        return generated_image, loss, out_args
 
     # generates images the same way it is trained
     # the check param is true if the function is used within the pipeline's check() function
