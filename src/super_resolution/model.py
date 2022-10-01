@@ -9,34 +9,39 @@ from utils import LossRecorder, TColors
 
 
 class Model():
-    def __init__(self, build_function=None, resolution=None, loss_function = None, optimizer = None):
+    def __init__(self, arch_build_function=None, loss_build_function = None, resolutions=(None, None), optimizer = None):
         super().__init__()
-        self.resolution = resolution
+        self.input_res, self.output_res = resolutions
 
         self.network = None
-        if build_function is not None:
-            self.network = build_function(self.resolution)
-        self.build_function = build_function
+        if arch_build_function is not None:
+            self.network = arch_build_function(self.input_res)
+        self.arch_build_function = arch_build_function
 
-        self.loss_function = loss_function
+        self.loss_function = None
+        if loss_build_function is not None:
+            self.loss_function = loss_build_function(input_res=self.output_res)
+        self.loss_build_function = loss_build_function
+
         self.optimizer = optimizer
 
         self.loss_recorder = LossRecorder()
 
 
     ## setter functions for the class variables
-    def set_network(self, build_function):
-        self.network = build_function(self.resolution)
-        self.build_function = build_function
+    def set_network(self, arch_build_function):
+        self.network = arch_build_function(self.input_res)
+        self.arch_build_function = arch_build_function
 
-    def set_resolution(self, resolution):
-        self.resolution = resolution
+    def set_resolutions(self, resolutions):
+        self.input_res, self.output_res = resolutions
 
     def set_weights(self, weights):
         self.network.set_weights(weights)
 
-    def set_loss_function(self, loss_function):
-        self.loss_function = loss_function
+    def set_loss_function(self, loss_build_function):
+        self.loss_function = loss_build_function(input_res=self.output_res)
+        self.loss_build_function = loss_build_function
 
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
@@ -49,30 +54,41 @@ class Model():
     def check_variables(self):
         status_ok = True
 
-        # Build Function
-        if self.build_function is None:
-            print(TColors.NOTE + 'Build Function: ' + TColors.FAIL + 'not available')
+        # Arch Build Function
+        if self.arch_build_function is None:
+            print(TColors.NOTE + 'Arch Build Function: ' + TColors.FAIL + 'not available')
             status_ok = False
         else:
-            print(TColors.NOTE + 'Build Function: ' + TColors.OKGREEN + 'available')
+            print(TColors.NOTE + 'Arch Build Function: ' + TColors.OKGREEN + 'available')
         # Network
         if self.network is None:
             print(TColors.NOTE + 'Network: ' + TColors.FAIL + 'not available')
             status_ok = False
         else:
             print(TColors.NOTE + 'Network: ' + TColors.OKGREEN + 'available')
-        # Resolution
-        if self.resolution is None:
-            print(TColors.NOTE + 'Resolution: ' + TColors.FAIL + 'not available')
+         # Loss Build Function
+        if self.loss_build_function is None:
+            print(TColors.NOTE + 'Loss Build Function: ' + TColors.FAIL + 'not available')
             status_ok = False
         else:
-            print(TColors.NOTE + 'Resolution: ' + TColors.OKGREEN + 'available')
+            print(TColors.NOTE + 'Loss Build Function: ' + TColors.OKGREEN + 'available')
         # Loss Function
         if self.loss_function is None:
             print(TColors.NOTE + 'Loss Function: ' + TColors.FAIL + 'not available')
             status_ok = False
         else:
             print(TColors.NOTE + 'Loss Function: ' + TColors.OKGREEN + 'available')
+        # Resolutions
+        if self.input_res is None:
+            print(TColors.NOTE + 'Input Resolution: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Input Resolution: ' + TColors.OKGREEN + 'available')
+        if self.output_res is None:
+            print(TColors.NOTE + 'Output Resolution: ' + TColors.FAIL + 'not available')
+            status_ok = False
+        else:
+            print(TColors.NOTE + 'Output Resolution: ' + TColors.OKGREEN + 'available')
         # Optimizer
         if self.optimizer is None:
             print(TColors.NOTE + 'Optimizer: ' + TColors.FAIL + 'not available')
@@ -100,20 +116,20 @@ class Model():
     def save_variables(self):
         return {
             'weights': self.network.get_weights(),
-            'build_function': self.build_function,
-            'resolution': self.resolution,
-            'loss_function': self.loss_function,
+            'arch_build_function': self.arch_build_function,
+            'loss_build_function': self.loss_build_function,
+            'resolutions': (self.input_res, self.output_res),
             'optimizer': self.optimizer,
             'loss_recorder': self.loss_recorder
         }
 
     # this function loads all the given values into class variables
     def load_variables(self, variables):
-        self.set_resolution(variables['resolution'])
+        self.set_resolutions(variables['resolutions'])
 
-        self.set_network(variables['build_function'])
+        self.set_network(variables['arch_build_function'])
         self.network.set_weights(variables['weights'])
 
-        self.set_loss_function(variables['loss_function'])
+        self.set_loss_function(variables['loss_build_function'])
         self.set_optimizer(variables['optimizer'])
         self.set_loss_recorder(variables['loss_recorder'])

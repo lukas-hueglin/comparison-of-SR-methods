@@ -65,12 +65,16 @@ def get_next_version(raw_path):
 
 ## Pipeline class ##
 class Pipeline(ABC):
-    def __init__(self, framework=None):
+    def __init__(self, framework=None, load_path=None):
         self.framework = framework
 
         self.model_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), os.pardir, os.pardir, 'models'))
         if framework is not None:
             self.output_path = get_next_version(os.path.join(self.model_path, self.framework.name))
+    
+        self.load_path = load_path
+        if self.load_path is not None:
+            self.load_framework(load_path)
 
     ## setter functions for the class variables.
     def set_framework(self, framework):
@@ -126,8 +130,8 @@ class Pipeline(ABC):
 
 
 class Trainer(Pipeline):
-    def __init__(self, framework=None, dataset_loader=None, sample_loader=None, epochs=1):
-        super().__init__(framework)
+    def __init__(self, framework=None, dataset_loader=None, sample_loader=None, epochs=1, load_path=None):
+        super().__init__(framework, load_path)
 
         self.dataset_loader = dataset_loader
 
@@ -138,6 +142,15 @@ class Trainer(Pipeline):
             self.sample_images = None
 
         self.epochs = epochs
+
+        # Take a note input from the Pipeline, so it's called only once in
+        # the training process, but save it in the framework, so it can be saved
+        if input(TColors.BOLD + '\nDo you want to add a note to the training process? (y/n): ' + TColors.ENDC) == 'y':
+            text = input(TColors.NOTE + 'Enter your notes here: ' + TColors.OKCYAN)
+            if self.framework.notes == '*Placeholder*\n':
+                self.framework.notes = '*' + text + '*</br>\n'
+            else:
+                self.framework.notes += '*' + text + '*\n'
 
     ## setter functions for the class variables.
     def set_epochs(self, epochs):
@@ -153,6 +166,8 @@ class Trainer(Pipeline):
 
     # The main train function. This function gets called by the user.
     def train(self):
+        train_timer = time.perf_counter()
+
         # check if everything is specified
         if self.dataset_loader != None:
 
@@ -171,9 +186,16 @@ class Trainer(Pipeline):
                     # get data to train
                     (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
 
+                    # convert to tensors
+                    features = tf.convert_to_tensor(features)
+                    labels = tf.convert_to_tensor(labels)
+
+                    # create input args
+                    in_args = self.framework.get_train_args()
+
                     # train
                     now = time.perf_counter()
-                    generated_images, loss = self.framework.train_step(features, labels)
+                    generated_images, loss = self.framework.train_step(features, labels, in_args)
 
                     # stop timer
                     network_time = time.perf_counter() - now
@@ -191,7 +213,7 @@ class Trainer(Pipeline):
                     self.framework.update_stats_recorder(
                         loss=loss,
                         sys_load=(cpu_load, ram_load, gpu_load),
-                        time=(feature_time, label_time, network_time),
+                        time=(feature_time, label_time, network_time, None),
                         metrics=(generated_images, labels),
                         train=True
                     )
@@ -204,7 +226,15 @@ class Trainer(Pipeline):
                     self.perform_SR(epoch)
 
                 # add a epoch to the stats recorders
-                self.framework.add_epoch()
+                if epoch != self.epochs + start_epoch - 1:
+                    self.framework.add_epoch()
+                else:
+                    now = time.perf_counter()
+                    # add total time to stats recorder
+                    self.framework.update_stats_recorder(
+                        time=(None, None, None, now - train_timer),
+                        train=True
+                    )
 
                 # save checkpoint
                 self.save_framework(epoch)
@@ -223,6 +253,7 @@ class Trainer(Pipeline):
 
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
+
 
     # Checks the variables of the pipeline and the framework
     # This functions should only be called as the first functions using the network
@@ -273,7 +304,7 @@ class Trainer(Pipeline):
     # performes superresolution on the sample images
     def save_sample_images(self, images, epoch):
         for i in range(len(images)):
-            img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
+            img = cv2.cvtColor((np.array(images[i])+1)*127.5, cv2.COLOR_RGB2BGR)
 
             # make paths
             dir_path = os.path.join(self.output_path, 'progress_images', 'image_' + f"{i+1:02d}")
@@ -288,25 +319,26 @@ class Trainer(Pipeline):
     def create_ABOUT_file(self):
         # get info from framework
         text = self.framework.get_info()
-        # add 3 - Training parameters
-        text += '## 3 - Training parameters\n\n'
+        # add 5 - Training parameters
+        text += '## 5 - Training parameters\n\n'
         text += 'Date: ' + str(datetime.date.today()) + '\n\n'
         text += 'Epochs: ' + str(self.framework.stats_recorder.epochs) + '</br>\n'
         text += 'Batch size: ' + str(self.dataset_loader.batch_size) + '</br>\n'
-        text += 'Buffer size: ' + str(self.dataset_loader.buffer_size) + '\n\n'
-        # add 4 - datasets (in future)
-        text += '## 4 - Datasets\n\n'
+        # add 6 - datasets (in future)
+        text += '## 6 - Datasets\n\n'
         text += 'Dataset: ' + self.dataset_loader.path + ' </br>\n'
         text += 'Dataset size: ' + str(self.dataset_loader.dataset_size) + ' </br>\n'
         text += 'Training - Validation ratio: ' + str(self.dataset_loader.train_ratio) + '\n\n'
-        # add 5 - Sample images
-        text += '## 6 - Sample Images\n\n'
+        # add 7 - Sample images
+        text += '## 7 - Sample Images\n\n'
         text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
 
         image_path = os.path.join(self.output_path, 'progress_images')
         image_dirs = os.listdir(image_path)
-        for image in image_dirs:
-            text += '![' + image + '](./progress_images/' + image + '/animfile.gif)\n'
+        for i in range(len(image_dirs)):
+            text += '<img src="./progress_images/' + image_dirs[i] + '/animfile.gif" alt="process image" width="10%"/>\n'
+            if (i+1) % 5 == 0:
+                text += '\n'
 
         # write file
         file = open(self.output_path+'\\ABOUT.md', 'w')
@@ -325,9 +357,18 @@ class Trainer(Pipeline):
             dill.dump(variables, file)
     
 class Validator(Pipeline):
-    def __init__(self, framework=None, dataset_loader=None):
-        super().__init__(framework)
+    def __init__(self, framework=None, dataset_loader=None, load_path=None):
+        super().__init__(framework, load_path=load_path)
         self.dataset_loader = dataset_loader
+
+        # Take a note input from the Pipeline, so it's called only once in
+        # the training process, but save it in the framework, so it can be saved
+        if input(TColors.BOLD + '\nDo you want to add a note to the training process? (y/n): ' + TColors.ENDC) == 'y':
+            text = input(TColors.NOTE + 'Enter your notes here: ' + TColors.OKCYAN)
+            if self.framework.notes == '*Placeholder*':
+                self.framework.notes = '*' + text + '*\n'
+            else:
+                self.framework.notes += '*' + text + '*\n'
 
     ## setter functions for the class variables.
     def set_dataset_loader(self, dataset_loader):
@@ -335,56 +376,106 @@ class Validator(Pipeline):
 
     # validates the neural network using the validation dataset
     def validate(self):
-        # print a message
-        print(TColors.HEADER + '\nValidation:\n' +TColors.ENDC)
+        train_timer = time.perf_counter()
 
-        # prepare the data loading process
-        self.dataset_loader.prepare_loading(train=False)
+        # check if everything is specified
+        if self.dataset_loader != None:
 
-        # iterate over each batch
-        num_batches = int(np.ceil(self.dataset_loader.validation_size/self.dataset_loader.batch_size))
-        for batch in tqdm(range(num_batches)):
-            # get data to train
-            (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
+            # print epoch
+            print(TColors.HEADER + '\nValidation:\n' +TColors.ENDC)
 
-            # train
+            # prepare the data loading process
+            self.dataset_loader.prepare_loading(train=False)
+
+            # iterate over each batch
+            num_batches = int(np.ceil(self.dataset_loader.validation_size/self.dataset_loader.batch_size))
+            for batch in tqdm(range(num_batches)):
+                # get data to train
+                (features, feature_time), (labels, label_time) = self.dataset_loader.access_loading()
+
+                # convert to tensors
+                features = tf.convert_to_tensor(features)
+                labels = tf.convert_to_tensor(labels)
+
+                # train
+                now = time.perf_counter()
+                generated_images = self.framework.generate_images(features, check=False)
+
+                # stop timer
+                network_time = time.perf_counter() - now
+
+                # generate sys_load
+                cpu_load = psutil.cpu_percent(interval=None, percpu=False)
+                ram_load = psutil.virtual_memory().percent
+                gpu_load = []
+                gpus = GPUtil.getGPUs()
+                for gpu in gpus:
+                    gpu_load.append(gpu.load * 100)
+
+                # add values to stats recorder
+                self.framework.update_stats_recorder(
+                    sys_load=(cpu_load, ram_load, gpu_load),
+                    time=(feature_time, label_time, network_time, None),
+                    metrics=(generated_images, labels),
+                    train=False
+                )
+
+            # join the processes
+            self.dataset_loader.close_loading()
+
             now = time.perf_counter()
-            generated_images, loss = self.framework.train_step(features, labels, train=False)
-
-            # stop timer
-            network_time = time.perf_counter() - now
-
-            # generate sys_load
-            cpu_load = psutil.cpu_percent(interval=None, percpu=False)
-            ram_load = psutil.virtual_memory().percent
-            gpu_load_list = []
-            gpus = GPUtil.getGPUs()
-            for gpu in gpus:
-                gpu_load_list.append(gpu.load * 100)
-            gpu_load = np.mean(gpu_load_list)
-
-            # add values to stats recorder
+            # add total time to stats recorder
             self.framework.update_stats_recorder(
-                loss=loss,
-                sys_load=(cpu_load, ram_load, gpu_load),
-                time=(feature_time, label_time, network_time),
-                metrics=(generated_images, labels),
+                time=(None, None, None, now - train_timer),
                 train=False
             )
 
-        # join the processes
-        self.dataset_loader.close_loading()
+            # plot stats
+            plot_path = os.path.join(self.output_path, 'statistics')
+            name = self.framework.name
+            self.framework.plot_and_save_stats(plot_path, name, train=False)
 
-        # plot stats
-        plot_path = os.path.join(self.output_path, 'statistics')
-        name = self.framework.name
-        self.framework.plot_and_save_stats(plot_path, name, train=False)
+            # make ABOUT.md file
+            self.create_ABOUT_file()
+
+        else:
+            print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
+
+    # This function is used to create the ABOUT.md file
+    def create_ABOUT_file(self):
+        # get info from framework
+        text = self.framework.get_info()
+        # add 5 - Training parameters
+        text += '## 5 - Training parameters\n\n'
+        text += 'Date: ' + str(datetime.date.today()) + '\n\n'
+        text += 'Epochs: ' + str(self.framework.stats_recorder.epochs) + '</br>\n'
+        text += 'Batch size: ' + str(self.dataset_loader.batch_size) + '</br>\n'
+        # add 6 - datasets (in future)
+        text += '## 6 - Datasets\n\n'
+        text += 'Dataset: ' + self.dataset_loader.path + ' </br>\n'
+        text += 'Dataset size: ' + str(self.dataset_loader.dataset_size) + ' </br>\n'
+        text += 'Training - Validation ratio: ' + str(self.dataset_loader.train_ratio) + '\n\n'
+        # add 7 - Sample images
+        text += '## 7 - Sample Images\n\n'
+        text += '*Note: All these images are available under [progress images](./progress_images/)*\n\n'
+
+        image_path = os.path.join(self.output_path, 'progress_images')
+        image_dirs = os.listdir(image_path)
+        for i in range(len(image_dirs)):
+            text += '<img src="./progress_images/' + image_dirs[i] + '/animfile.gif" alt="process image" width="10%"/>\n'
+            if (i+1) % 5 == 0:
+                text += '\n'
+
+        # write file
+        file = open(self.output_path+'\\ABOUT.md', 'w')
+        file.write(text)
+        file.close()
 
     # Checks the variables of the pipeline and the framework
     # This functions should only be called as the first functions using the network
     def check(self):
         # print 'Check Trainer'
-        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+        print(TColors.HEADER + '\nCheck Validator:\n' + TColors.ENDC)
 
         assert(self.check_variables())
 
@@ -410,8 +501,8 @@ class Validator(Pipeline):
 
 
 class Performer(Pipeline):
-    def __init__(self, framework=None, sample_loader=None):
-        super().__init__(framework)
+    def __init__(self, framework=None, sample_loader=None, load_path=None):
+        super().__init__(framework, load_path=load_path)
 
         self.sample_loader = sample_loader
         if self.sample_loader is not None:
@@ -431,7 +522,7 @@ class Performer(Pipeline):
     # This functions should only be called as the first functions using the network
     def check(self):
         # print 'Check Trainer'
-        print(TColors.HEADER + '\nCheck Trainer:\n' + TColors.ENDC)
+        print(TColors.HEADER + '\nCheck Performer:\n' + TColors.ENDC)
 
         assert(self.check_variables())
 
@@ -457,8 +548,13 @@ class Performer(Pipeline):
 
     # performes the superresolution task and returns the upsampled image
     def perform_SR(self):
+        generated_images = []
         # generate images
-        generated_images = self.framework.generate_images(self.sample_images)
+        for i in range(0, len(self.sample_images), 2):
+            imgs = self.framework.generate_images(self.sample_images[i:i+2])
+            generated_images.append(imgs)
+        
+        generated_images = np.reshape(generated_images, (-1, np.shape(generated_images)[2], np.shape(generated_images)[3], np.shape(generated_images)[4]))
         self.save_images(generated_images)
 
     # saves images to the output path
@@ -467,7 +563,7 @@ class Performer(Pipeline):
         os.makedirs(dir_path, exist_ok=True)
 
         for i in range(len(images)):
-            img = cv2.cvtColor(np.array(images[i])*255, cv2.COLOR_RGB2BGR)
+            img = cv2.cvtColor((np.array(images[i])+1)*127.5, cv2.COLOR_RGB2BGR)
             path = os.path.join(dir_path, 'image_' + f"{i+1:03d}" + '.jpg')
             
             cv2.imwrite(path, img)

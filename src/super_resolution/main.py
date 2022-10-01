@@ -13,9 +13,8 @@ from utils import TColors
 MODE = 'training'
 
 
-EPOCHS = 10
-BATCH_SIZE = 64
-BUFFER_SIZE = 1000
+EPOCHS = 1
+BATCH_SIZE = 2
 
 ## main function
 def main():
@@ -23,18 +22,17 @@ def main():
     # create dataset loader
     dataset_loader = DatasetLoader(
         path='D:\\Local UNSPLASH Dataset Full',
-        feature_lod=5,
-        label_lod=3,
+        feature_lod=3,
+        label_lod=1,
         batch_size=BATCH_SIZE,
-        buffer_size=BUFFER_SIZE,
         dataset_type='supervised',
-        dataset_size=1000
+        dataset_size=100
     )
 
     # create sample loader
     sample_loader = SampleLoader(
         path='D:\\Local UNSPLASH Samples',
-        resolution=32,
+        resolution=128,
         batch_size=BATCH_SIZE
     )
 
@@ -42,12 +40,13 @@ def main():
     if MODE == 'training':
         # create pipeline
         pipeline = Trainer(
-            framework=presets.build_SRDemo(),
+            framework=presets.build_SRResNet_Fourier(),
             epochs=EPOCHS,
             dataset_loader=dataset_loader,
-            
             # if you don't have sample images or don't need it just set it None
-            sample_loader=sample_loader
+            sample_loader=sample_loader, 
+            # load a pretrained framework
+            #load_path='SRGAN_Fourier_v.018'
         )
 
         # check the variables of pipeline
@@ -59,11 +58,10 @@ def main():
     elif MODE == 'validation':
         # create pipeline
         pipeline = Validator(
-            dataset_loader=dataset_loader
+            dataset_loader=dataset_loader,
+            # load a pretrained framework
+            load_path='SRGAN_Fourier_v.022'
         )
-
-        # load a pretrained framework
-        pipeline.load_framework('SRDemo_v.001')
 
         # check the variables of pipeline
         pipeline.check()
@@ -74,11 +72,10 @@ def main():
     elif MODE == 'perform':
         # create pipeline
         pipeline = Performer(
-            sample_loader=sample_loader
+            sample_loader=sample_loader,
+            # load a pretrained framework
+            load_path='SRGAN_v.003'
         )
-
-        # load a pretrained framework
-        pipeline.load_framework('SRDemo_v.012')
 
         # check the variables of pipeline
         pipeline.check()

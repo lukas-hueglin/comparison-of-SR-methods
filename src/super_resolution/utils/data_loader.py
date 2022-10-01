@@ -10,8 +10,6 @@ import tensorflow as tf
 import multiprocessing as mp
 import time
 
-from tqdm import tqdm
-
 import os
 import numpy as np
 import h5py
@@ -35,13 +33,12 @@ def resize_images(imgs, size, interpolation):
 
 # loads Features and Labels into a tf.Dataset
 class DatasetLoader():
-    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = 'supervised', train_ratio = 0.8, dataset_size = -1):
+    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, dataset_type = 'supervised', train_ratio = 0.8, dataset_size = -1):
         self.path = path
         self.feature_path = os.path.join(path, 'data', 'LOD_' + str(feature_lod) + '.hdf5')
         self.label_path = os.path.join(path, 'data', 'LOD_' + str(label_lod) + '.hdf5')
 
         self.batch_size = batch_size
-        self.buffer_size = buffer_size
 
         self.dataset_type = dataset_type
         
@@ -67,9 +64,6 @@ class DatasetLoader():
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
-    
-    def set_buffer_size(self, buffer_size):
-        self.buffer_size = buffer_size
 
 
     # prepare the loading of the images
@@ -83,11 +77,11 @@ class DatasetLoader():
 
         feature_loader = mp.Process(
             target=self.load_dataset_mp,
-            args=(feature_queue, self.feature_path, train)
+            args=(feature_queue, self.feature_path, train, True)
         )
         label_loader = mp.Process(
             target=self.load_dataset_mp,
-            args=(label_queue, self.label_path, train)
+            args=(label_queue, self.label_path, train, False)
         )
 
         # start processes and add them to the class variables
@@ -114,7 +108,7 @@ class DatasetLoader():
         self.label_job = (None, None)
 
     # dataset loader function with multiprocessing
-    def load_dataset_mp(self, queue, path, train=True):
+    def load_dataset_mp(self, queue, path, train=True, features=True):
         # start timer
         timer = time.perf_counter()
 
@@ -137,20 +131,25 @@ class DatasetLoader():
 
                     # iterate all images
                     for i in image_nodes:
-                        images.append(np.array(hf[b+'/'+i])/255) # normalize
+                        if features:
+                            array = np.array(hf[b+'/'+i])/255 # normalize
+                        else:
+                            array = np.array(hf[b+'/'+i])/127.5 - 1 # normalize
+
+                        images.append(array) 
                         image_count += 1
 
                         # check if batch is full
                         if image_count % self.batch_size == 0:
                             # shuffle features so a unsupervised dataset is generated
                             if self.dataset_type == 'unsupervised':
-                                images = np.random.shuffle(images)
+                                np.random.shuffle(images)
 
                             # stop timer
                             now = time.perf_counter()
 
                             # put on queue
-                            queue.put((images,now-timer))
+                            queue.put((images,now-timer), block=True, timeout=None)
 
                             timer = now
                             images = []
@@ -165,7 +164,7 @@ class DatasetLoader():
             if len(images) != 0:
                 # shuffle features so a unsupervised dataset is generated
                 if self.dataset_type == 'unsupervised':
-                    images = np.random.shuffle(images)
+                    np.random.shuffle(images)
 
                 # put on queue
                 queue.put((images, time.perf_counter()-timer))

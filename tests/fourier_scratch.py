@@ -50,6 +50,8 @@ def img_fft(img):
     fft_g = np.fft.fftshift(np.fft.fft2(green))
     fft_b = np.fft.fftshift(np.fft.fft2(blue))
 
+    print(np.shape(fft_r))
+
     fft = combine_channels(fft_r, fft_g, fft_b)
 
     return fft
@@ -93,7 +95,7 @@ def dynamic_imshow_ifft(fft, ax, min, max):
 
 # images folder in ignored by git
 scriptDir = os.path.dirname(__file__)
-impath = os.path.join(scriptDir, '../images/Unsplash_Lite_03.jpg')
+impath = os.path.join(scriptDir, '../images/Unsplash_Lite_02.jpg')
 
 # open image
 image = cv2.imread(impath)

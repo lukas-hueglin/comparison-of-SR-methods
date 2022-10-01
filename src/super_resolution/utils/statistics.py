@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 
 ## metrics
-
+import tensorflow as tf
 def PSNR_metric(y_pred, y_true):
     sum = 0
     for i in range(len(y_pred)):
@@ -19,13 +19,13 @@ def PSNR_metric(y_pred, y_true):
     return sum/len(y_pred)
 
 def SSIM_metric(y_pred, y_true):
-    k1 = 0.5
-    k2 = 0.5
+    k1 = 0.01
+    k2 = 0.03
     L = 1.0 # Dynamic range
 
     C1 = np.square(k1*L)
     C2 = np.square(k2*L)
-    C3 = 1.0
+    C3 = C2/2
 
     alpha = 1.0
     beta = 1.0
@@ -56,7 +56,7 @@ def SSIM_metric(y_pred, y_true):
 
 ## Plot Params ##
 PRIMARY_LW = 1
-SECONDARY_LW = 0.7
+SECONDARY_LW = 0.4
 AX_LABEL_FS = 10
 LABEL_FS = 7
 
@@ -108,6 +108,7 @@ class StatsRecorder():
             'feature_load_time': [],
             'label_load_time': [],
             'network_time': [],
+            'total_time': 0,
             'cpu_load': [],
             'ram_load': [],
             'gpu_load': [],
@@ -118,6 +119,7 @@ class StatsRecorder():
             'feature_load_time': [],
             'label_load_time': [],
             'network_time': [],
+            'total_time': 0,
             'cpu_load': [],
             'ram_load': [],
             'gpu_load': [],
@@ -133,7 +135,7 @@ class StatsRecorder():
 
         if time is not None:
             # unpack
-            f_time, l_time, t_time = time
+            f_time, l_time, t_time, total_time = time
 
             if f_time is not None:
                 data_pack['feature_load_time'].append(f_time)
@@ -141,6 +143,8 @@ class StatsRecorder():
                 data_pack['label_load_time'].append(l_time)
             if t_time is not None:
                 data_pack['network_time'].append(t_time)
+            if total_time is not None:
+                data_pack['total_time'] += total_time
 
     # add a new load value
     def add_sys_load(self, sys_load, train=True):
@@ -164,7 +168,7 @@ class StatsRecorder():
         if metrics is not None:
             y_pred, y_true = metrics
             for i in range(len(data_pack['metrics'])):
-                data_pack['metrics'][i].append(self.metric_functions[i](y_pred, y_true))
+                data_pack['metrics'][i].append(self.metric_functions[i]((y_pred+1)/2, (y_true+1)/2))
 
     # count the epoch counter up one epoch.
     def add_epoch(self):
@@ -178,6 +182,9 @@ class StatsRecorder():
         
         # set title
         ax_train.title.set_text('Training')
+
+        # set axis scale
+        ax_train.set_yscale('log')
 
         # set labels
         ax_train.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
@@ -198,9 +205,11 @@ class StatsRecorder():
             # set title
             ax_validation.title.set_text('Validation')
 
-            # set labels
+            # set axis scale
+            ax_validation.set_yscale('log')
 
-            ax_validation.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
+            # set labels
+            ax_validation.set_xlabel('Validation Process', fontsize=AX_LABEL_FS)
             ax_validation.set_ylabel('Time (s)', fontsize=AX_LABEL_FS)
 
             # plot
@@ -211,41 +220,93 @@ class StatsRecorder():
             ax_validation.legend(loc='best', fontsize=LABEL_FS)
 
     # fills the given subplots with the system load data
-    def plot_sys_load(self, ax_train, ax_validation, train=True):
+    def plot_sys_load(self, fig_train, fig_validation, train=True):
+        # unwrap axes
+        ax_t_cpu, ax_t_ram, ax_t_gpu = fig_train.subplots(3)
+
         ## training data
         # make x - axis
         x_train = np.linspace(0, self.epochs, num=len(self.training['cpu_load']))
 
+        # make average
+        x_t_cpu_avg = np.mean(self.training['cpu_load'])
+        x_t_ram_avg = np.mean(self.training['ram_load'])
+        x_t_gpu_avg = np.mean(self.training['gpu_load'])
+
         # set title
-        ax_train.title.set_text('Training')
+        fig_train.suptitle('Training')
         
         # set labels
-        ax_train.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
-        ax_train.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
+        ax_t_cpu.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
+        ax_t_cpu.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
+        ax_t_cpu.label_outer()
+        ax_t_ram.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
+        ax_t_ram.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
+        ax_t_ram.label_outer()
+        ax_t_gpu.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
+        ax_t_gpu.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
+        ax_t_gpu.label_outer()
+
+        # set limits
+        ax_t_cpu.set_ylim([0, 100])
+        ax_t_ram.set_ylim([0, 100])
+        ax_t_gpu.set_ylim([0, 100])
 
         # plot
-        ax_train.plot(x_train, self.training['cpu_load'], linewidth=PRIMARY_LW, color='tab:orange', label='cpu load')
-        ax_train.plot(x_train, self.training['ram_load'], linewidth=PRIMARY_LW, color='tab:blue', label='ram load')
-        ax_train.plot(x_train, self.training['gpu_load'], linewidth=PRIMARY_LW, color='tab:green', label='gpu load')
+        ax_t_cpu.plot(x_train, self.training['cpu_load'], linewidth=SECONDARY_LW, linestyle=':', color='sandybrown')
+        ax_t_cpu.hlines(x_t_cpu_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:orange', label='cpu load')
+        ax_t_ram.plot(x_train, self.training['ram_load'], linewidth=SECONDARY_LW, linestyle=':', color='cornflowerblue')
+        ax_t_ram.hlines(x_t_ram_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:blue', label='ram load')
+        ax_t_gpu.plot(x_train, self.training['gpu_load'], linewidth=SECONDARY_LW, linestyle=':', color='palegreen')
+        ax_t_gpu.hlines(x_t_gpu_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:green', label='gpu load')
 
-        ax_train.legend(loc='best', fontsize=LABEL_FS)
+        # set legend
+        if train:
+            ax_t_cpu.legend(loc='upper right', fontsize=LABEL_FS)
+            ax_t_ram.legend(loc='upper right', fontsize=LABEL_FS)
+            ax_t_gpu.legend(loc='upper right', fontsize=LABEL_FS)
 
         ## validation data
         if not train:
+            # unwrap axes
+            ax_v_cpu, ax_v_ram, ax_v_gpu = fig_validation.subplots(3)
+
             # make x - axis
             x_validation = np.linspace(0, 1, num=len(self.validation['cpu_load']))
 
+             # make average
+            x_v_cpu_avg = np.mean(self.validation['cpu_load'])
+            x_v_ram_avg = np.mean(self.validation['ram_load'])
+            x_v_gpu_avg = np.mean(self.validation['gpu_load'])
+
             # set title
-            ax_validation.title.set_text('Validation')
+            fig_validation.suptitle('Validation')
             
             # set labels
-            ax_validation.set_xlabel('Epochs', fontsize=AX_LABEL_FS)
-            ax_validation.set_ylabel('Load (%)', fontsize=AX_LABEL_FS)
+            ax_v_cpu.set_xlabel('Validation Process', fontsize=AX_LABEL_FS)
+            ax_v_cpu.label_outer()
+            ax_v_ram.set_xlabel('Validation Process', fontsize=AX_LABEL_FS)
+            ax_v_ram.label_outer()
+            ax_v_gpu.set_xlabel('Validation Process', fontsize=AX_LABEL_FS)
+            ax_v_gpu.label_outer()
+
+            # set limits
+            ax_v_cpu.set_ylim([0, 100])
+            ax_v_ram.set_ylim([0, 100])
+            ax_v_gpu.set_ylim([0, 100])
 
             # plot
-            ax_validation.plot(x_validation, self.validation['cpu_load'], linewidth=PRIMARY_LW, color='tab:orange', label='cpu load')
-            ax_validation.plot(x_validation, self.validation['ram_load'], linewidth=PRIMARY_LW, color='tab:blue', label='ram load')
-            ax_validation.plot(x_validation, self.validation['gpu_load'], linewidth=PRIMARY_LW, color='tab:green', label='gpu load')
+            ax_v_cpu.plot(x_validation, self.validation['cpu_load'], linewidth=SECONDARY_LW, linestyle=':', color='sandybrown')
+            ax_v_cpu.hlines(x_v_cpu_avg, 0, 1, linewidth=PRIMARY_LW, color='tab:orange', label='cpu load')
+            ax_v_ram.plot(x_validation, self.validation['ram_load'], linewidth=SECONDARY_LW, linestyle=':', color='cornflowerblue')
+            ax_v_ram.hlines(x_v_ram_avg, 0, 1, linewidth=PRIMARY_LW, color='tab:blue', label='ram load')
+            ax_v_gpu.plot(x_validation, self.validation['gpu_load'], linewidth=SECONDARY_LW, linestyle=':', color='palegreen')
+            ax_v_gpu.hlines(x_v_gpu_avg, 0, 1, linewidth=PRIMARY_LW, color='tab:green', label='gpu load')
+
+            # set legend
+            ax_v_cpu.legend(loc='upper right', fontsize=LABEL_FS)
+            ax_v_ram.legend(loc='upper right', fontsize=LABEL_FS)
+            ax_v_gpu.legend(loc='upper right', fontsize=LABEL_FS)
 
     # fills the given subplots with the metric data
     def plot_metrics(self, axs, train=True):
