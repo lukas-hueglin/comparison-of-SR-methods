@@ -113,7 +113,7 @@ def main():
     # images folder in ignored by git
     scriptDir = os.path.dirname(__file__)
     impath = os.path.join(scriptDir, '../images/Unsplash_Lite_05.jpg')
-    impath = 'D:\\Super Resolution Samples\\LOD_3\\image_037.jpg'
+    impath = 'D:\\Super Resolution Samples\\LOD_3\\image_026.jpg'
 
     # open image
     image = cv2.imread(impath)

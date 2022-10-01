@@ -8,8 +8,8 @@ import tensorflow as tf
 from keras import layers, Sequential
 from keras import Model
 
-# A placeholder function for the SRResNet architecture
-def make_SRResNet(input_res):
+# The building function of the SRResNet architecture (4x)
+def make_SRResNet_4x(input_res):
     def residual_block(x, i):
         # skip connection
         skip = x
@@ -66,9 +66,68 @@ def make_SRResNet(input_res):
     y = layers.Activation('tanh')(x)
 
     return Model(inputs=input, outputs=y, name='SRResNet')
+
+
+# The building function of the SRResNet architecture (2x)
+def make_SRResNet_2x(input_res):
+    def residual_block(x, i):
+        # skip connection
+        skip = x
+
+        # layers
+        x = layers.Conv2D(64, (3, 3), strides=1, padding='same', name='ResB_'+ f"{i+1:02d}" +'_Conv_01')(x)
+        x = layers.BatchNormalization(name='ResB_'+ f"{i+1:02d}" +'_BN_01')(x)
+
+        x = layers.PReLU(name='ResB_'+ f"{i+1:02d}" +'_PReLU')(x)
+
+        x = layers.Conv2D(64, (3, 3), strides=1, padding='same', name='ResB_'+ f"{i+1:02d}" +'_Conv_02')(x)
+        x = layers.BatchNormalization(name='ResB_'+ f"{i+1:02d}" +'_BN_02')(x)
+
+        # add skip connection
+        x = layers.Add(name='ResB_'+ f"{i+1:02d}" +'_Sum')([x, skip])
+
+        return x
+
+    def upscale_block(x, i):
+        x = layers.Conv2D(256, (3, 3), strides=1, padding='same', name='UpB_'+ f"{i+1:02d}" +'_Conv')(x)
+        x = layers.Lambda(lambda x: tf.nn.depth_to_space(x, 2), name='UpB_'+ f"{i+1:02d}" +'_PixShuf')(x) # pixelshuffle
+        x = layers.PReLU(name='UpB_'+ f"{i+1:02d}" +'_PReLU')(x)
+    
+        return x
+
+
+    # build network
+    input = layers.Input(shape=(input_res, input_res, 3), name='LR_Input')
+
+    # first pre Residual layers
+    x = layers.Conv2D(64, (9, 9), strides=1, padding='same', name='Conv_01')(input)
+    x = layers.PReLU(name='PReLU_01')(x)
+
+    # skip connection over all residual blocks
+    skip = x
+
+    # b residual blocks
+    b = 16
+
+    for i in range(b):
+        x = residual_block(x, i)
+
+    # layers after residual blocks
+    x = layers.Conv2D(64, (3, 3), strides=1, padding='same', name='Conv_02')(x)
+    x = layers.BatchNormalization(name='BN_01')(x)
+    x = layers.Add(name='Sum_01')([x, skip])
+
+    # one upscaling block
+    x = upscale_block(x, i)
+
+    # ending conv
+    x = layers.Conv2D(3, (9, 9), strides=1, padding='same', name='Conv_03')(x)
+    y = layers.Activation('tanh')(x)
+
+    return Model(inputs=input, outputs=y, name='SRResNet')
     
 
-# A placeholder function for the SRGan discriminator
+# The building function of the SRGan discriminator
 def make_SRGAN_disc(input_res):
     def block(x, filters, stride, i):
         x = layers.Conv2D(filters, (3, 3), strides=stride, name='B_'+ f"{i:02d}" +'_Conv')(x)

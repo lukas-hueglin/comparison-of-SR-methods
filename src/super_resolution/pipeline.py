@@ -180,10 +180,6 @@ class Trainer(Pipeline):
                 # prepare the data loading process
                 self.dataset_loader.prepare_loading(train=True)
 
-                F_loss = []
-                M_loss = []
-                G_loss = []
-
                 # iterate over each batch
                 num_batches = int(np.ceil(self.dataset_loader.train_size/self.dataset_loader.batch_size))
                 for batch in tqdm(range(num_batches)):
@@ -195,21 +191,11 @@ class Trainer(Pipeline):
                     labels = tf.convert_to_tensor(labels)
 
                     # create input args
-                    disc_loss = self.framework.method.discriminator.loss_recorder.loss
-                    if len(disc_loss) == 0:
-                        in_args = tf.Variable(0, dtype=tf.float32, trainable=False)
-                    else:
-                        in_args = tf.Variable(np.mean(disc_loss[-400:]), dtype=tf.float32, trainable=False)
+                    in_args = self.framework.get_train_args()
 
                     # train
                     now = time.perf_counter()
-                    generated_images, loss, args = self.framework.train_step(features, labels, in_args)
-
-                    # do with args what you want
-                    F_loss.append(args[0][0])
-                    M_loss.append(args[0][1])
-                    G_loss.append(args[0][2])
-
+                    generated_images, loss = self.framework.train_step(features, labels, in_args)
 
                     # stop timer
                     network_time = time.perf_counter() - now
@@ -250,10 +236,6 @@ class Trainer(Pipeline):
                         train=True
                     )
 
-                print("Fourier_loss: ", np.mean(F_loss))
-                print("MSE_loss: ", np.mean(M_loss))
-                print("Gen_loss: ", np.mean(G_loss))
-
                 # save checkpoint
                 self.save_framework(epoch)
 
@@ -271,7 +253,6 @@ class Trainer(Pipeline):
 
         else:
             print(TColors.WARNING + 'The training dataset or the framework is not specified!' + TColors.ENDC)
-
 
 
     # Checks the variables of the pipeline and the framework
@@ -343,7 +324,6 @@ class Trainer(Pipeline):
         text += 'Date: ' + str(datetime.date.today()) + '\n\n'
         text += 'Epochs: ' + str(self.framework.stats_recorder.epochs) + '</br>\n'
         text += 'Batch size: ' + str(self.dataset_loader.batch_size) + '</br>\n'
-        text += 'Buffer size: ' + str(self.dataset_loader.buffer_size) + '\n\n'
         # add 6 - datasets (in future)
         text += '## 6 - Datasets\n\n'
         text += 'Dataset: ' + self.dataset_loader.path + ' </br>\n'
@@ -470,7 +450,6 @@ class Validator(Pipeline):
         text += 'Date: ' + str(datetime.date.today()) + '\n\n'
         text += 'Epochs: ' + str(self.framework.stats_recorder.epochs) + '</br>\n'
         text += 'Batch size: ' + str(self.dataset_loader.batch_size) + '</br>\n'
-        text += 'Buffer size: ' + str(self.dataset_loader.buffer_size) + '\n\n'
         # add 6 - datasets (in future)
         text += '## 6 - Datasets\n\n'
         text += 'Dataset: ' + self.dataset_loader.path + ' </br>\n'

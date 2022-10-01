@@ -1,7 +1,8 @@
 ### __init__.py ###
 
 # The functions for building a network
-from .architectures import make_SRResNet
+from .architectures import make_SRResNet_4x
+from .architectures import make_SRResNet_2x
 from .architectures import make_SRGAN_disc
 from .architectures import make_Demo
 

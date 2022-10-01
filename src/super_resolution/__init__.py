@@ -6,6 +6,7 @@ from .model import Model
 # All the Methods
 from .methods import Method
 from .methods import AdversarialNetwork
+from .methods import LimitedAdversarialNetwork
 from .methods import SingleNetwork
 
 # All the upsampling functions
@@ -21,7 +22,11 @@ from .upsampling import ProgressiveUpsampling
 
 # All the presets
 from .presets import build_SRGAN
+from .presets import build_SRGAN_Limited
+from .presets import build_SRGAN_Limited_Progressive
+from .presets import build_SRGAN_Fourier
 from .presets import build_SRResNet
+from .presets import build_SRResNet_Fourier
 from .presets import build_SRDemo
 
 # All the classes from pipeline.py

@@ -60,6 +60,10 @@ class Method(ABC):
     def load_variables(self, variables):
         pass
 
+    @abstractmethod
+    def get_train_args(self):
+        pass
+
 
 # The AdversarialNetwork class describes a method with a generator and a discriminator.
 class AdversarialNetwork(Method):
@@ -92,8 +96,8 @@ class AdversarialNetwork(Method):
             fake_output = self.discriminator.network(generated_images, training=True)
 
             # calculate the loss
-            gen_loss, gen_args = self.generator.loss_function(labels, generated_images, fake_output)
-            disc_loss, disc_args = self.discriminator.loss_function(real_output, fake_output)
+            gen_loss = self.generator.loss_function(labels, generated_images, fake_output)
+            disc_loss = self.discriminator.loss_function(real_output, fake_output)
 
         # calculate the gradient of generator and discriminator
         gen_gradient = gen_tape.gradient(gen_loss, self.generator.network.trainable_variables)
@@ -101,14 +105,10 @@ class AdversarialNetwork(Method):
 
         # adjust the parameters with backpropagation
         self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.network.trainable_variables))
-
-        # only apply gradient if discriminator is not too good
-        optimal_loss = 0.6932 #ln(2)
-        if in_args >= optimal_loss:
-            self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
+        self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
 
         # return loss because it can't be accessed in a @tf.function
-        return generated_images, (gen_loss, disc_loss), (gen_args, disc_args)
+        return generated_images, (gen_loss, disc_loss)
 
     # returns the generated image of the generator
     # the check param is true if the function is used within the pipeline's check() function
@@ -216,6 +216,57 @@ class AdversarialNetwork(Method):
         self.discriminator = Model()
         self.discriminator.load_variables(variables['discriminator'])
 
+    def get_train_args(self):
+        return None
+
+# The AdversarialNetwork class describes a method with a generator and a discriminator,
+# but the training of the discriminator is limited
+class LimitedAdversarialNetwork(AdversarialNetwork):
+    def __init__(self, generator = None, discriminator = None):
+        super().__init__(generator, discriminator)
+
+    # The train_method(x, y) function trains the generator
+    # and the discriminator with the typical GAN procedure.
+    # (from the tensorflow documentation: https://www.tensorflow.org/tutorials/generative/dcgan)
+    def train_method(self, features, labels, in_args):
+        # The GradientTapes watch the transformation of the network parameters
+        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+
+            # predition by the generator
+            generated_images = self.generator.network(features, training=True)
+
+            # prediction by the discriminator given a real image
+            # (real_output) and given the generated image of the generator
+            real_output = self.discriminator.network(labels, training=True)
+            fake_output = self.discriminator.network(generated_images, training=True)
+
+            # calculate the loss
+            gen_loss = self.generator.loss_function(labels, generated_images, fake_output)
+            disc_loss = self.discriminator.loss_function(real_output, fake_output)
+
+        # calculate the gradient of generator and discriminator
+        gen_gradient = gen_tape.gradient(gen_loss, self.generator.network.trainable_variables)
+        disc_gradient = disc_tape.gradient(disc_loss, self.discriminator.network.trainable_variables)
+
+        # adjust the parameters with backpropagation
+        self.generator.optimizer.apply_gradients(zip(gen_gradient, self.generator.network.trainable_variables))
+
+        # only apply gradient if discriminator is not too good
+        optimal_loss = 0.6932 #ln(2)
+        if in_args >= optimal_loss:
+            self.discriminator.optimizer.apply_gradients(zip(disc_gradient, self.discriminator.network.trainable_variables))
+
+        # return loss because it can't be accessed in a @tf.function
+        return generated_images, (gen_loss, disc_loss)
+
+    # this function returns the loss of the discriminator as train arguments
+    def get_train_args(self):
+        loss = self.discriminator.loss_recorder.loss
+        if len(loss) == 0:
+            return tf.Variable(0, dtype=tf.float32, trainable=False)
+        else:
+            return tf.Variable(np.mean(loss[-400:]), dtype=tf.float32, trainable=False)
+
 
 # The SingleNetwork class describes a method with just one model.
 class SingleNetwork(Method):
@@ -229,7 +280,7 @@ class SingleNetwork(Method):
     
     # The train_method(x, y) function trains
     # the model,by minimizing the loss of the predicted image.
-    def train_method(self, features, labels):
+    def train_method(self, features, labels, in_args):
         # The GradientTape watches the transformation of the network parameters
         with tf.GradientTape() as tape:
 
@@ -329,3 +380,6 @@ class SingleNetwork(Method):
     def load_variables(self, variables):
         self.model = Model()
         self.model.load_variables(variables['model'])
+
+    def get_train_args(self):
+        return None

@@ -33,13 +33,12 @@ def resize_images(imgs, size, interpolation):
 
 # loads Features and Labels into a tf.Dataset
 class DatasetLoader():
-    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, buffer_size = 100, dataset_type = 'supervised', train_ratio = 0.8, dataset_size = -1):
+    def __init__(self, path=None, feature_lod = 1, label_lod = 0, batch_size = 20, dataset_type = 'supervised', train_ratio = 0.8, dataset_size = -1):
         self.path = path
         self.feature_path = os.path.join(path, 'data', 'LOD_' + str(feature_lod) + '.hdf5')
         self.label_path = os.path.join(path, 'data', 'LOD_' + str(label_lod) + '.hdf5')
 
         self.batch_size = batch_size
-        self.buffer_size = buffer_size
 
         self.dataset_type = dataset_type
         
@@ -65,9 +64,6 @@ class DatasetLoader():
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
-    
-    def set_buffer_size(self, buffer_size):
-        self.buffer_size = buffer_size
 
 
     # prepare the loading of the images

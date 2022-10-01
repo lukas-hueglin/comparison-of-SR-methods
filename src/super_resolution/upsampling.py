@@ -209,6 +209,11 @@ class Framework(ABC):
         self.name = variables['name']
         self.notes = variables['notes']
 
+    # this function returns the training arguments
+    @abstractmethod
+    def get_train_args(self):
+        pass
+
 
 # This class scales the input images
 # up first and passes them aferwards to the network
@@ -231,9 +236,9 @@ class PreUpsampling(Framework):
         upsampled_features = self.upsample_function(features, self.output_res)
 
         # passing it to the neural network
-        generated_image, loss, out_args = self.method.train_method(upsampled_features, labels, in_args)
+        generated_image, loss = self.method.train_method(upsampled_features, labels, in_args)
 
-        return generated_image, loss, out_args
+        return generated_image, loss
 
     # generates images the same way it is trained
     # the check param is true if the function is used within the pipeline's check() function
@@ -311,12 +316,16 @@ class PreUpsampling(Framework):
 
         self.method = variables['method']['class']()
         self.method.load_variables(variables['method'])
-        
+
+    def get_train_args(self):
+        return self.method.get_train_args()
+
+
 
 # This class scales the images up progressively. The output image
 class ProgressiveUpsampling(Framework):
-    def __init__(self, input_res=None, output_res=None, upsample_function=None, methods=None, steps = 1, name='framework'):
-        super().__init__(input_res, output_res, upsample_function, name)
+    def __init__(self, input_res=None, output_res=None, upsample_function=None, methods=None, steps = 1, metric_functions=[], name='framework'):
+        super().__init__(input_res, output_res, upsample_function, metric_functions, name)
 
         # There are multiple methods for each resolution
         self.methods = methods
@@ -334,7 +343,7 @@ class ProgressiveUpsampling(Framework):
     # This is the training step function. The labels
     # get scaled up and sent to the network self.step times.
     @tf.function
-    def train_step(self, features, labels):
+    def train_step(self, features, labels, in_args):
         generated_images = []
         losses = []
         # there are self.steps loops
@@ -345,19 +354,18 @@ class ProgressiveUpsampling(Framework):
 
             # sample the features up and the lables down
             upsampled_features = self.upsample_function(features, res)
-            downsampled_labels = lanczos(labels, res) # using lanczos because it's a good downsample method
+            downsampled_labels = lanczos(labels, res*2) # using lanczos because it's a good downsample method
 
             # train the network
-            generated_image, loss = self.method[i].train_method(upsampled_features, downsampled_labels)
+            generated_image, loss = self.methods[i].train_method(upsampled_features, downsampled_labels, in_args[i])
 
             # append information for the return value
-            generated_images.append(generated_image)
             losses.append(loss)
 
             # pass the generated image back into the feature for the next loop
             features = (generated_image + 1 ) / 2
 
-        return generated_images, losses
+        return features, losses
 
     # generates images the same way it is trained
     # the check param is true if the function is used within the pipeline's check() function
@@ -374,7 +382,7 @@ class ProgressiveUpsampling(Framework):
             upsampled_images = self.upsample_function(images, res)
 
             # get prediction of the network
-            images = self.method[i].generate_images(upsampled_images, check=check)
+            images = self.methods[i].generate_images(upsampled_images, check=check)
 
         return images
 
@@ -408,7 +416,7 @@ class ProgressiveUpsampling(Framework):
         return super().get_info(class_name)
 
     # counts the epoch counter up one epoch
-    def add_epochs(self):
+    def add_epoch(self):
         for method in self.methods:
             method.add_epoch()
         self.stats_recorder.add_epoch()
@@ -417,7 +425,7 @@ class ProgressiveUpsampling(Framework):
     def update_stats_recorder(self, loss=None, time=None, sys_load=None, metrics=None, train=True):
         # add loss
         for i in range(self.steps):
-            self.methods[i].update_stats_recorder(loss=loss[i])
+            self.methods[i].add_loss(loss=loss[i])
 
         # add time
         self.stats_recorder.add_time(time, train=train)
@@ -463,3 +471,11 @@ class ProgressiveUpsampling(Framework):
             method = m['class']()
             method.load_variables(m)
             self.methods.append(method)
+
+    def get_train_args(self):
+        loss_list = []
+
+        for i in range(self.steps):
+            loss_list.append(self.methods[i].get_train_args())
+
+        return tf.convert_to_tensor(loss_list)
