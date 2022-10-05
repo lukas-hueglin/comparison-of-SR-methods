@@ -28,6 +28,21 @@ def build_SRGAN_loss(input_res=None):
 
     return SRGAN_loss
 
+# This loss function will return the sum of a VGG loss
+# function and the gen_loss() function. It is used for the SRGAN_Limited preset.
+def build_SRGAN_Limited_loss(input_res=None):
+    # build VGG19_loss
+    VGG19_loss = build_VGG19_loss(input_res)
+    # build gen_loss
+    gen_loss = build_gen_loss()
+
+    def SRGAN_loss(y_true, y_pred, y_disc):
+        ResNet_loss = VGG19_loss(y_true, y_pred)
+        G_loss = (1e-2)*gen_loss(y_disc)
+        return ResNet_loss + G_loss
+
+    return SRGAN_loss
+
 # This loss function will return the sum of a Fourier loss
 # function and the gen_loss() function. It is used for the SRGAN_Fourier preset.
 def build_SRGAN_Fourier_loss(input_res=None):

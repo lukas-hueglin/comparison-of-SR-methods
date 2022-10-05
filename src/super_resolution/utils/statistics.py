@@ -179,6 +179,11 @@ class StatsRecorder():
         ## training data
         # make x - axis
         x_train = np.linspace(0, self.epochs, num=len(self.training['feature_load_time']))
+
+        # make average
+        x_t_feature_avg = np.mean(self.training['feature_load_time'])
+        x_t_label_avg = np.mean(self.training['label_load_time'])
+        x_t_network_avg = np.mean(self.training['network_time'])
         
         # set title
         ax_train.title.set_text('Training')
@@ -191,9 +196,13 @@ class StatsRecorder():
         ax_train.set_ylabel('Time (s)', fontsize=AX_LABEL_FS)
 
         # plot
-        ax_train.plot(x_train, self.training['feature_load_time'], linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
-        ax_train.plot(x_train, self.training['label_load_time'], linewidth=PRIMARY_LW, color='tab:green', label='label load time')
-        ax_train.plot(x_train, self.training['network_time'], linewidth=PRIMARY_LW, color='tab:orange', label='train time')
+        ax_train.plot(x_train, self.training['feature_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='cornflowerblue')
+        ax_train.hlines(x_t_feature_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
+        ax_train.plot(x_train, self.training['label_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='palegreen')
+        ax_train.hlines(x_t_label_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:green', label='label load time')
+        ax_train.plot(x_train, self.training['network_time'], linewidth=SECONDARY_LW, linestyle=':', color='sandybrown')
+        ax_train.hlines(x_t_network_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:orange', label='train time')
+
 
         ax_train.legend(loc='best', fontsize=LABEL_FS)
 
@@ -201,6 +210,11 @@ class StatsRecorder():
         if not train:
             # make x - axis
             x_validation = np.linspace(0, 1, num=len(self.validation['feature_load_time']))
+
+            # make average
+            x_v_feature_avg = np.mean(self.validation['feature_load_time'])
+            x_v_label_avg = np.mean(self.validation['label_load_time'])
+            x_v_network_avg = np.mean(self.validation['network_time'])
             
             # set title
             ax_validation.title.set_text('Validation')
@@ -213,9 +227,13 @@ class StatsRecorder():
             ax_validation.set_ylabel('Time (s)', fontsize=AX_LABEL_FS)
 
             # plot
-            ax_validation.plot(x_validation, self.validation['feature_load_time'], linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
-            ax_validation.plot(x_validation, self.validation['label_load_time'], linewidth=PRIMARY_LW, color='tab:green', label='label load time')
-            ax_validation.plot(x_validation, self.validation['network_time'], linewidth=PRIMARY_LW, color='tab:orange', label='generation time')
+            ax_validation.plot(x_train, self.validation['feature_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='cornflowerblue')
+            ax_validation.hlines(x_v_feature_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
+            ax_validation.plot(x_train, self.validation['label_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='palegreen')
+            ax_validation.hlines(x_v_label_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:green', label='label load time')
+            ax_validation.plot(x_train, self.validation['network_time'], linewidth=SECONDARY_LW, linestyle=':', color='sandybrown')
+            ax_validation.hlines(x_v_network_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:orange', label='generation time')
+
 
             ax_validation.legend(loc='best', fontsize=LABEL_FS)
 

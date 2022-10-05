@@ -10,10 +10,10 @@ from utils import TColors
 
 
 ## global parameters
-MODE = 'training'
+MODE = 'validation'
 
 
-EPOCHS = 1
+EPOCHS = 100
 BATCH_SIZE = 2
 
 ## main function
@@ -26,7 +26,7 @@ def main():
         label_lod=1,
         batch_size=BATCH_SIZE,
         dataset_type='supervised',
-        dataset_size=100
+        dataset_size=10000
     )
 
     # create sample loader
@@ -40,13 +40,13 @@ def main():
     if MODE == 'training':
         # create pipeline
         pipeline = Trainer(
-            framework=presets.build_SRResNet_Fourier(),
+            framework=presets.build_SRGAN(),
             epochs=EPOCHS,
             dataset_loader=dataset_loader,
             # if you don't have sample images or don't need it just set it None
             sample_loader=sample_loader, 
             # load a pretrained framework
-            #load_path='SRGAN_Fourier_v.018'
+            load_path='SRGAN_v.001'
         )
 
         # check the variables of pipeline
@@ -60,7 +60,7 @@ def main():
         pipeline = Validator(
             dataset_loader=dataset_loader,
             # load a pretrained framework
-            load_path='SRGAN_Fourier_v.022'
+            load_path='SRGAN_v.001'
         )
 
         # check the variables of pipeline

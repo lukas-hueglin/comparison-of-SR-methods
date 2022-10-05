@@ -61,7 +61,7 @@ def build_SRGAN_Limited():
     # build generator
     generator = Model(
         arch_build_function=arch.make_SRResNet_4x,
-        loss_build_function=lf.build_SRGAN_loss,
+        loss_build_function=lf.build_SRGAN_Limited_loss,
         resolutions=(INPUT_RES, OUTPUT_RES),
         optimizer=tf.keras.optimizers.Adam(1e-4)
     )
