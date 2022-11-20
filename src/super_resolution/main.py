@@ -10,7 +10,7 @@ from utils import TColors
 
 
 ## global parameters
-MODE = 'validation'
+MODE = 'perform'
 
 
 EPOCHS = 100
@@ -46,7 +46,7 @@ def main():
             # if you don't have sample images or don't need it just set it None
             sample_loader=sample_loader, 
             # load a pretrained framework
-            load_path='SRGAN_v.001'
+            #load_path='SRGAN'
         )
 
         # check the variables of pipeline
@@ -60,7 +60,7 @@ def main():
         pipeline = Validator(
             dataset_loader=dataset_loader,
             # load a pretrained framework
-            load_path='SRGAN_v.001'
+            load_path='SRGAN'
         )
 
         # check the variables of pipeline
@@ -74,7 +74,7 @@ def main():
         pipeline = Performer(
             sample_loader=sample_loader,
             # load a pretrained framework
-            load_path='SRGAN_v.003'
+            load_path='SRGAN'
         )
 
         # check the variables of pipeline

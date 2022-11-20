@@ -206,6 +206,7 @@ class Framework(ABC):
         self.output_res = variables['output_res']
         self.upsample_function = variables['upsample_function']
         self.stats_recorder = variables['stats_recorder']
+        self.stats_recorder.training['total_time']
         self.name = variables['name']
         self.notes = variables['notes']
 

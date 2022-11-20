@@ -227,12 +227,12 @@ class StatsRecorder():
             ax_validation.set_ylabel('Time (s)', fontsize=AX_LABEL_FS)
 
             # plot
-            ax_validation.plot(x_train, self.validation['feature_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='cornflowerblue')
-            ax_validation.hlines(x_v_feature_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
-            ax_validation.plot(x_train, self.validation['label_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='palegreen')
-            ax_validation.hlines(x_v_label_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:green', label='label load time')
-            ax_validation.plot(x_train, self.validation['network_time'], linewidth=SECONDARY_LW, linestyle=':', color='sandybrown')
-            ax_validation.hlines(x_v_network_avg, 0, self.epochs, linewidth=PRIMARY_LW, color='tab:orange', label='generation time')
+            ax_validation.plot(x_validation, self.validation['feature_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='cornflowerblue')
+            ax_validation.hlines(x_v_feature_avg, 0, len(self.validation['feature_load_time']), linewidth=PRIMARY_LW, color='tab:blue', label='feature load time')
+            ax_validation.plot(x_validation, self.validation['label_load_time'], linewidth=SECONDARY_LW, linestyle=':', color='palegreen')
+            ax_validation.hlines(x_v_label_avg, 0, len(self.validation['feature_load_time']), linewidth=PRIMARY_LW, color='tab:green', label='label load time')
+            ax_validation.plot(x_validation, self.validation['network_time'], linewidth=SECONDARY_LW, linestyle=':', color='sandybrown')
+            ax_validation.hlines(x_v_network_avg, 0, len(self.validation['feature_load_time']), linewidth=PRIMARY_LW, color='tab:orange', label='generation time')
 
 
             ax_validation.legend(loc='best', fontsize=LABEL_FS)

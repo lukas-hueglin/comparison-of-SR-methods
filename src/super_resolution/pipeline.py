@@ -228,13 +228,14 @@ class Trainer(Pipeline):
                 # add a epoch to the stats recorders
                 if epoch != self.epochs + start_epoch - 1:
                     self.framework.add_epoch()
-                else:
-                    now = time.perf_counter()
-                    # add total time to stats recorder
-                    self.framework.update_stats_recorder(
-                        time=(None, None, None, now - train_timer),
-                        train=True
-                    )
+                
+                now = time.perf_counter()
+                # add total time to stats recorder
+                self.framework.update_stats_recorder(
+                    time=(None, None, None, now - train_timer),
+                    train=True
+                )
+                train_timer = time.perf_counter()
 
                 # save checkpoint
                 self.save_framework(epoch)
